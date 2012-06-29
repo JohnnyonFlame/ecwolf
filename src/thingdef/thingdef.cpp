@@ -764,6 +764,18 @@ bool ClassDef::IsDescendantOf(const ClassDef *parent) const
 	return false;
 }
 
+bool ClassDef::IsStateOwner(const Frame *frame) const
+{
+	// OK this is really going to be slow way to do things, but this is really
+	// only for the save game code so I guess it's not too bad.
+	for(unsigned int i = 0;i < frameList.Size();++i)
+	{
+		if(frame == frameList[i])
+			return true;
+	}
+	return false;
+}
+
 void ClassDef::LoadActors()
 {
 	printf("ClassDef: Loading actor definitions.\n");
@@ -809,11 +821,15 @@ void ClassDef::LoadActors()
 	R_InitSprites();
 
 	{
+		unsigned int index = 0;
+
 		TMap<FName, ClassDef *>::Iterator iter(ClassTable());
 		TMap<FName, ClassDef *>::Pair *pair;
 		while(iter.NextPair(pair))
 		{
 			ClassDef * const cls = pair->Value;
+
+			cls->ClassIndex = index++;
 			for(unsigned int i = 0;i < cls->frameList.Size();++i)
 				cls->frameList[i]->spriteInf = R_GetSprite(cls->frameList[i]->sprite);
 		}

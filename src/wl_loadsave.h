@@ -1,8 +1,8 @@
 /*
-** a_playerpawn.h
+** wl_loadsave.h
 **
 **---------------------------------------------------------------------------
-** Copyright 2011 Braden Obrzut
+** Copyright 2012 Braden Obrzut
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -32,47 +32,25 @@
 **
 */
 
-#ifndef __A_PLAYERPAWN_H__
-#define __A_PLAYERPAWN_H__
+#ifndef __WL_LOADSAVE_H__
+#define __WL_LOADSAVE_H__
 
-#include "actor.h"
+class FString;
+class Menu;
+class MenuItem;
 
-struct player_t;
-class AWeapon;
-
-enum
+namespace GameSave
 {
-	APMETA_Start = 0x02000,
+	Menu		&GetLoadMenu();
+	MenuItem	*GetLoadMenuItem();
+	Menu		&GetSaveMenu();
+	MenuItem	*GetSaveMenuItem();
+	void		InitMenus();
+	void		QuickLoad();
+	void		QuickSave();
 
-	APMETA_Slot0,
-	APMETA_Slot1,
-	APMETA_Slot2,
-	APMETA_Slot3,
-	APMETA_Slot4,
-	APMETA_Slot5,
-	APMETA_Slot6,
-	APMETA_Slot7,
-	APMETA_Slot8,
-	APMETA_Slot9
-};
-
-class APlayerPawn : public AActor
-{
-	DECLARE_NATIVE_CLASS(PlayerPawn, Actor)
-
-	public:
-		~APlayerPawn();
-
-		void	GiveStartingInventory();
-		AWeapon	*PickNewWeapon();
-		void	Serialize(FArchive &arc);
-		void	Tick();
-
-		int32_t		maxhealth;
-		DropList	*startInventory;
-
-	protected:
-		void	TickPSprites();
-};
+	bool		Load(const FString &filename);
+	bool		Save(const FString &filename, const FString &title);
+}
 
 #endif

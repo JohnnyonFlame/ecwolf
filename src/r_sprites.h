@@ -54,4 +54,8 @@ void R_LoadSprite(const FString &name);
 void ScaleSprite(AActor *actor, int xcenter, const Frame *frame, unsigned height);
 void R_DrawPlayerSprite(AActor *actor, const Frame *frame, fixed offsetX, fixed offsetY);
 
+// For FArchive
+unsigned int R_GetNumLoadedSprites();
+uint32_t R_GetNameForSprite(unsigned int index);
+
 #endif

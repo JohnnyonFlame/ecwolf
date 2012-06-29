@@ -253,6 +253,7 @@ class ClassDef
 		{
 			return ClassIterator(ClassTable());
 		}
+		static unsigned int		GetNumClasses() { return ClassTable().CountUsed(); }
 
 		/**
 		 * Prints the implemented classes in a tree.  This is not designed to 
@@ -269,9 +270,12 @@ class ClassDef
 		AActor					*GetDefault() const { return (AActor*)defaultInstance; }
 		const FName				&GetName() const { return name; }
 		size_t					GetSize() const { return size; }
+		const Frame				*GetState(unsigned int index) const { return frameList[index]; }
 		static void				LoadActors();
+		bool					IsStateOwner(const Frame *frame) const;
 		static void				UnloadActors();
 
+		unsigned int			ClassIndex;
 		MetaTable				Meta;
 
 	protected:

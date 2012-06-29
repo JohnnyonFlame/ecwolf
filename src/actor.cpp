@@ -34,6 +34,7 @@
 
 #include "actor.h"
 #include "a_inventory.h"
+#include "farchive.h"
 #include "gamemap.h"
 #include "id_ca.h"
 #include "thinker.h"
@@ -71,6 +72,39 @@ void Frame::ActionCall::operator() (AActor *self) const
 	}
 }
 
+FArchive &operator<< (FArchive &arc, const Frame *&frame)
+{
+	if(arc.IsStoring())
+	{
+		// Find a class which held this state.
+		// This should always be able to be found.
+		const ClassDef *cls;
+		ClassDef::ClassIterator iter = ClassDef::GetClassIterator();
+		ClassDef::ClassPair *pair;
+		while(iter.NextPair(pair))
+		{
+			cls = pair->Value;
+			if(cls->IsStateOwner(frame))
+				break;
+		}
+
+		arc << cls;
+		arc << const_cast<Frame *>(frame)->index;
+	}
+	else
+	{
+		const ClassDef *cls;
+		unsigned int frameIndex;
+
+		arc << cls;
+		arc << frameIndex;
+
+		frame = cls->GetState(frameIndex);
+	}
+
+	return arc;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // We can't make AActor a thinker since we create non-thinking objects.
@@ -101,6 +135,12 @@ class AActorProxy : public Thinker
 		{
 			if(enabled)
 				parent->Tick();
+		}
+
+		void Serialize(FArchive &arc)
+		{
+			arc << enabled << parent;
+			Super::Serialize(arc);
 		}
 
 		bool			enabled;
@@ -282,6 +322,45 @@ void AActor::Init()
 		state = NULL;
 		Destroy();
 	}
+}
+
+void AActor::Serialize(FArchive &arc)
+{
+	if(arc.IsStoring())
+		arc.WriteSprite(sprite);
+	else
+		sprite = arc.ReadSprite();
+
+	arc << flags
+		<< distance
+		<< x
+		<< y
+		<< velx
+		<< vely
+		<< angle
+		<< health
+		<< speed
+		<< runspeed
+		<< points
+		<< radius
+		<< ticcount
+		<< state
+		<< sprite
+		<< viewx
+		<< viewheight
+		<< transx
+		<< transy
+		<< sighttime
+		<< sightrandom
+		<< missilechance
+		<< attacksound
+		<< deathsound
+		<< seesound
+		<< player
+		<< inventory
+		<< thinker;
+
+	Super::Serialize(arc);
 }
 
 void AActor::SetState(const Frame *state, bool notic)
