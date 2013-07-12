@@ -80,6 +80,7 @@ actor Inventory native
 	inventory.amount 1
 	inventory.maxamount 1
 	inventory.interhubamount 1
+	inventory.pickupsound "misc/i_pkup"
 }
 
 actor Ammo : Inventory native
@@ -152,6 +153,7 @@ actor PlayerPawn native
 	player.sidemove 1, 1
 	player.maxhealth 100
 	player.movebob 1.0
+	player.damagecolor "FF 00 00"
 	+SOLID
 	+SHOOTABLE
 	+PICKUP

@@ -92,9 +92,9 @@ static int CheckData(WadStuff &wad)
 	for(unsigned int i = 0;i < wad.Path.Size();++i)
 	{
 		FResourceFile *file = FResourceFile::OpenResourceFile(wad.Path[i], NULL, true);
-		LumpRemapper::RemapAll(); // Fix lump names if needed
 		if(file)
 		{
+			LumpRemapper::RemapAll(); // Fix lump names if needed
 			for(unsigned int j = file->LumpCount();j-- > 0;)
 			{
 				FResourceLump *lump = file->GetLump(j);
@@ -128,6 +128,11 @@ static int CheckData(WadStuff &wad)
 	}
 	delete[] valid;
 	return wad.Type;
+}
+
+bool CheckGameFilter(FName filter)
+{
+	return selectedGame->Game == filter;
 }
 
 const IWadData &GetGame()
@@ -362,6 +367,13 @@ static void ParseIWad(Scanner &sc)
 					sc.ScriptMessage(Scanner::ERROR, "Unknown flag %s.", sc->str.GetChars());
 			}
 			while(sc.CheckToken(','));
+		}
+		else if(key.CompareNoCase("Game") == 0)
+		{
+			// This specifies a filter to be used for switching between things
+			// like environment sounds.
+			sc.MustGetToken(TK_StringConst);
+			iwad.Game = sc->str;
 		}
 		else if(key.CompareNoCase("Name") == 0)
 		{
