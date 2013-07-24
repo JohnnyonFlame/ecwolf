@@ -1,0 +1,145 @@
+actor BlakeWeapon : Weapon
+{
+	weapon.ammotype1 "Clip"
+	weapon.ammouse1 1
+	weapon.ammogive1 6
+	weapon.yadjust 19
+	weapon.bobstyle "Thrust"
+	weapon.bobrangex 0
+	weapon.bobrangey 0.5
+	states
+	{
+		Select:
+			TNT1 A 0 A_Raise
+			loop
+		Deselect:
+			TNT1 A 0 A_Lower
+			loop
+	}
+}
+
+actor AutoChargePistol : BlakeWeapon 314
+{
+	weapon.ammouse1 0
+	+WEAPON.NOAUTOFIRE
+	-WEAPON.DONTBOB
+	states
+	{
+		Ready:
+			ACPG A 1 A_WeaponReady
+			loop
+		Fire:
+			ACPG BC 3
+			ACPG D 3 // Fire
+			ACPG E 3
+			goto Ready
+		Spawn:
+			ACPP A -1
+			stop
+	}
+}
+
+actor SlowFireProtector : BlakeWeapon 230
+{
+	weapon.ammouse1 0
+	+WEAPON.NOAUTOFIRE
+	states
+	{
+		Ready:
+			SFPG A 1 A_WeaponReady
+			loop
+		Fire:
+			SFPG BC 3
+			SFPG D 3 // Fire
+			SFPG E 3
+			goto Ready
+		Spawn:
+			SFPP A -1
+			stop
+	}
+}
+
+actor RapidAssaultWeapon : BlakeWeapon 233
+{
+	weapon.ammouse1 0
+	states
+	{
+		Ready:
+			RAWG A 1 A_WeaponReady
+			loop
+		Fire:
+			RAWG B 3
+		Hold:
+			RAWG C 3
+			RAWG D 2.5 // Fire
+			RAWG E 2.5 A_ReFire
+			goto Ready
+		Spawn:
+			RAWP A -1
+			stop
+	}
+}
+
+actor DualNeutronDisruptor : BlakeWeapon 234
+{
+	weapon.ammouse1 0
+	states
+	{
+		Ready:
+			DNDG A 1 A_WeaponReady
+			loop
+		Fire:
+			DNDG B 3
+		Hold:
+			DNDG C 3
+			DNDG D 1.5 // Fire
+			DNDG D 0 // Fire
+			DNDG E 1.5 A_ReFire
+			goto Ready
+		Spawn:
+			DNDP A -1
+			stop
+	}
+}
+
+actor PlasmaDischargeUnit : BlakeWeapon 252
+{
+	weapon.ammouse1 0
+	states
+	{
+		Ready:
+			PDUG A 1 A_WeaponReady
+			loop
+		Fire:
+			PDUG B 3
+		Hold:
+			PDUG C 3
+			PDUG D 3 // Fire
+			PDUG E 3 A_ReFire
+			goto Ready
+		Spawn:
+			PDUP A -1
+			stop
+	}
+}
+
+actor AntiPlasmaCannon : BlakeWeapon 240
+{
+	weapon.ammouse1 0
+	states
+	{
+		Ready:
+			APCG A 1 A_WeaponReady
+			loop
+		Fire:
+			APCG B 3
+		Hold:
+			APCG C 3
+			APCG D 3 // Fire
+			APCG E 3 A_ReFire
+			goto Ready
+		Spawn:
+			APCP A -1
+			stop
+	}
+}
