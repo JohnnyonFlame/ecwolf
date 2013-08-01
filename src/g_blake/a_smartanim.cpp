@@ -1,8 +1,8 @@
 /*
-** lumpremap.h
+** a_smartanim.cpp
 **
 **---------------------------------------------------------------------------
-** Copyright 2011 Braden Obrzut
+** Copyright 2013 Braden Obrzut
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -29,60 +29,46 @@
 ** THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **---------------------------------------------------------------------------
 **
+** Smart animation emulation.
 **
 */
 
-#ifndef __LUMPREMAP_H__
-#define __LUMPREMAP_H__
+#include "actor.h"
+#include "thingdef/thingdef.h"
 
-#include "resourcefiles/resourcefile.h"
-#include "tarray.h"
-#include "zstring.h"
+//------------------------------------------------------------------------------
+// Plasma Grenade state duration function. This calculates how many tics it
+// will take to pass into the next tile. Sets the current frame to that duration
+//
 
-class LumpRemapper
+ACTION_FUNCTION(A_PlasmaGrenadeCalcDuration)
 {
-	public:
-		enum Type
-		{
-			AUDIOT,
-			VGAGRAPH,
-			VSWAP
-		};
+	const bool horiz = ABS(self->velx) > ABS(self->vely);
+	const fixed velocity = horiz ? self->velx : self->vely;
 
-		enum PSpriteType
-		{
-			PSPR_NONE,
-			PSPR_NORMAL,
-			PSPR_BLAKE
-		};
+	fixed distance = horiz ? self->fracx : self->fracy;
+	if(velocity > 0)
+		distance = FRACUNIT - distance;
 
-		LumpRemapper(const char* extension);
+	self->ticcount = distance/ABS(velocity) + 1;
+}
 
-		void		AddFile(FResourceFile *file, Type type);
-		void		DoRemap();
+//------------------------------------------------------------------------------
+// Smart animation: Blake Stone used these to implement simple animation
+// sequences. This would be fine, but they used the random number generator a
+// little too much. So the main purpose of this is to hold a random number
+// throughout an animation sequence.
+//
+// Due to technical limitations, this inconsistently takes 70hz tics instead of
+// Doom style half tics.
 
-		static void	AddFile(const char* extension, FResourceFile *file, Type type);
-		static void ClearRemaps();
-		static void	LoadMap(const char* extension, const char* name, const char* data, unsigned int length);
-		static unsigned int LumpSampleRate(FResourceFile *Owner);
-		static PSpriteType IsPSprite(int lumpnum);
-		static void	RemapAll();
-	protected:
-		bool		LoadMap();
-		void		LoadMap(const char* name, const char* data, unsigned int length);
-		void		ParseMap(class Scanner &sc);
-	private:
-		struct RemapFile
-		{
-			FResourceFile	*file;
-			Type			type;
-		};
+ACTION_FUNCTION(A_InitSmartAnim)
+{
+	ACTION_PARAM_INT(delay, 0);
+	self->temp1 = delay;
+}
 
-		unsigned int		digiTimerValue;
-		bool				loaded;
-		FString				mapLumpName;
-		TArray<FString>		graphics, sprites, sounds, digitalsounds, music, textures;
-		TArray<RemapFile>	files;
-};
-
-#endif
+ACTION_FUNCTION(A_SmartAnimDelay)
+{
+	self->ticcount = self->temp1;
+}
