@@ -22,6 +22,7 @@
 #include "wl_inter.h"
 #include "wl_play.h"
 #include "g_mapinfo.h"
+#include "a_inventory.h"
 
 /*
 =============================================================================
@@ -86,6 +87,9 @@ ControlScheme controlScheme[] =
 	{ bt_slot0,				"Slot 0",		-1,			sc_0,			-1, NULL, 0 },
 	{ bt_nextweapon,		"Next Weapon",	4,			-1,				-1, NULL, 0 },
 	{ bt_prevweapon,		"Prev Weapon",	5, 			-1,				-1, NULL, 0 },
+	{ bt_altattack,			"Alt Attack",	-1,			-1,				-1, NULL, 0 },
+	{ bt_reload,			"Reload",		-1,			-1,				-1, NULL, 0 },
+	{ bt_zoom,				"Zoom",			-1,			-1,				-1, NULL, 0 },
 
 	// End of List
 	{ bt_nobutton,			NULL, -1, -1, -1, NULL, 0 }
@@ -276,6 +280,9 @@ void PollMouseMove (void)
 		controly += mouseymove * 40 / (21 - mouseadjustment);
 	else if(mouselook)
 	{
+		if(players[0].ReadyWeapon && players[0].ReadyWeapon->fovscale > 0)
+			mouseymove = mouseymove*fabs(players[0].ReadyWeapon->fovscale);
+
 		players[0].mo->pitch += mouseymove * (ANGLE_1 / (21 - mouseadjustment));
 		if(players[0].mo->pitch+ANGLE_180 > ANGLE_180+56*ANGLE_1)
 			players[0].mo->pitch = 56*ANGLE_1;
@@ -736,18 +743,20 @@ void UpdatePaletteShifts (void)
 
 	if (red)
 	{
-		VL_SetBlend(0xFF, 0x00, 0x00, red*(174/NUMREDSHIFTS));
+		V_SetBlend(RPART(players[0].mo->damagecolor),
+                             GPART(players[0].mo->damagecolor),
+                             BPART(players[0].mo->damagecolor), red*(174/NUMREDSHIFTS));
 		palshifted = true;
 	}
 	else if (white)
 	{
 		// [BL] More of a yellow if you ask me.
-		VL_SetBlend(0xFF, 0xF8, 0x00, white*(38/NUMWHITESHIFTS));
+		V_SetBlend(0xFF, 0xF8, 0x00, white*(38/NUMWHITESHIFTS));
 		palshifted = true;
 	}
 	else if (palshifted)
 	{
-		VL_SetBlend(0, 0, 0, 0);
+		V_SetBlend(0, 0, 0, 0);
 		palshifted = false;
 	}
 }
@@ -767,7 +776,8 @@ void FinishPaletteShifts (void)
 {
 	if (palshifted)
 	{
-		VL_SetBlend(0, 0, 0, 0, true);
+		V_SetBlend(0, 0, 0, 0);
+		VH_UpdateScreen();
 		palshifted = false;
 	}
 }
@@ -801,7 +811,6 @@ void PlayLoop (void)
 	playstate = ex_stillplaying;
 	lasttimecount = GetTimeCount();
 	frameon = 0;
-	facecount = 0;
 	funnyticount = 0;
 	memset (buttonstate, 0, sizeof (buttonstate));
 	ClearPaletteShifts ();
@@ -811,6 +820,8 @@ void PlayLoop (void)
 
 	if (demoplayback)
 		IN_StartAck ();
+
+	StatusBar->NewGame();
 
 	do
 	{
@@ -825,6 +836,7 @@ void PlayLoop (void)
 		{
 			++gamestate.TimeCount;
 			thinkerList->Tick();
+			AActor::FinishSpawningActors();
 
 			if(i == 0) // After the first tic, go ahead and take care of button holding.
 				memcpy(buttonheld, buttonstate, sizeof (buttonstate));
@@ -848,7 +860,7 @@ void PlayLoop (void)
 
 		CheckKeys ();
 		if((gamestate.TimeCount & 1) || !(tics & 1))
-			DrawStatusBar();
+			StatusBar->DrawStatusBar();
 //
 // debug aids
 //

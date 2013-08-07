@@ -10,6 +10,7 @@ add_custom_target(revision_check ALL
 	DEPENDS updaterevision
 )
 
+include(CheckCXXSourceCompiles)
 include(CheckFunctionExists)
 include(FindPkgConfig)
 
@@ -46,6 +47,22 @@ endif(NOT STRNICMP_EXISTS)
 if(NOT ATOLL_EXISTS)
 	add_definitions(-Datoll=_atoi64)
 endif(NOT ATOLL_EXISTS)
+
+check_cxx_source_compiles(
+	"#include <stdarg.h>
+	int main() { va_list list1, list2; va_copy(list1, list2); return 0; }"
+	HAS_VA_COPY )
+if( NOT HAS_VA_COPY )
+	check_cxx_source_compiles(
+		"#include <stdarg.h>
+		int main() { va_list list1, list2; __va_copy(list1, list2); return 0; }"
+		HAS___VA_COPY )
+	if( HAS___VA_COPY )
+		add_definitions( -Dva_copy=__va_copy )
+	else( HAS___VA_COPY )
+		add_definitions( -DNO_VA_COPY )
+	endif( HAS___VA_COPY )
+endif( NOT HAS_VA_COPY )
 
 if(CMAKE_COMPILER_IS_GNUCXX AND NOT APPLE)
 	set(CMAKE_CXX_FLAGS "-Wall -Wno-unused -Wno-unused-result -Wno-ignored-qualifiers -Wextra -Wno-missing-field-initializers ${CMAKE_CXX_FLAGS}")
@@ -103,6 +120,7 @@ endif(NO_GTK)
 
 if(APPLE)
 	set(EXTRA_FILES
+		macosx/filesys.mm
 		macosx/SDLMain.m
 		macosx/wl_iwad_picker_cocoa.mm
 	)
@@ -139,8 +157,14 @@ add_executable(ecwolf ${PLATFORM_EXE_FLAGS}
 	g_shared/a_playerpawn.cpp
 	g_shared/a_randomspawner.cpp
 	g_wolf/a_spearofdestiny.cpp
+	g_wolf/wolf_sbar.cpp
+	r_2d/r_draw.cpp
+	r_2d/r_drawt.cpp
+	r_2d/r_main.cpp
+	r_2d/r_things.cpp
 	r_data/colormaps.cpp
 	r_data/r_translate.cpp
+	r_data/renderstyle.cpp
 	resourcefiles/resourcefile.cpp
 	resourcefiles/ancientzip.cpp
 	resourcefiles/file_7z.cpp
@@ -193,8 +217,9 @@ add_executable(ecwolf ${PLATFORM_EXE_FLAGS}
 	dobject.cpp
 	dobjgc.cpp
 	farchive.cpp
-	file.cpp
 	files.cpp
+	filesys.cpp
+	filesys_steam.cpp
 	g_intermission.cpp
 	g_mapinfo.cpp
 	gamemap.cpp
@@ -217,10 +242,13 @@ add_executable(ecwolf ${PLATFORM_EXE_FLAGS}
 	p_switch.cpp
 	r_sprites.cpp
 	scanner.cpp
+	sdlvideo.cpp
 	sndinfo.cpp
 	thinker.cpp
+	v_draw.cpp
 	v_font.cpp
 	v_palette.cpp
+	v_pfx.cpp
 	v_video.cpp
 	w_wad.cpp
 	weaponslots.cpp

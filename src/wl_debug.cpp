@@ -17,6 +17,7 @@
 #include "g_mapinfo.h"
 #include "actor.h"
 #include "language.h"
+#include "m_png.h"
 #include "wl_agent.h"
 #include "wl_debug.h"
 #include "wl_draw.h"
@@ -27,6 +28,8 @@
 #include "thingdef/thingdef.h"
 #include "g_shared/a_keys.h"
 #include "r_sprites.h"
+#include "wl_shade.h"
+#include "filesys.h"
 
 #ifdef USE_CLOUDSKY
 #include "wl_cloudsky.h"
@@ -85,21 +88,28 @@ void ViewMap (void);
 */
 void PictureGrabber (void)
 {
-	static char fname[] = "WSHOT000.BMP";
+	static char fname[] = "WSHOT000.PNG";
+	FString screenshotDir = FileSys::GetDirectoryPath(FileSys::DIR_Screenshots);
 
 	for(int i = 0; i < 1000; i++)
 	{
 		fname[7] = i % 10 + '0';
 		fname[6] = (i / 10) % 10 + '0';
 		fname[5] = i / 100 + '0';
-		int file = open(fname, O_RDONLY | O_BINARY);
-		if(file == -1) break;       // file does not exist, so use that filename
-		close(file);
+		if(!File(screenshotDir + PATH_SEPARATOR + fname).exists())
+			break;
 	}
 
-	// overwrites WSHOT999.BMP if all wshot files exist
-
-	SDL_SaveBMP(curSurface, fname);
+	// overwrites WSHOT999.PNG if all wshot files exist
+	const BYTE* buffer;
+	int pitch;
+	ESSType color_type;
+	screen->GetScreenshotBuffer(buffer, pitch, color_type);
+	FILE *file = File(screenshotDir + PATH_SEPARATOR + fname).open("wb");
+	M_CreatePNG(file, buffer, GPalette.BaseColors, color_type, SCREENWIDTH, SCREENHEIGHT, pitch);
+	M_FinishPNG(file);
+	fclose(file);
+	screen->ReleaseScreenshotBuffer();
 
 	US_CenterWindow (18,2);
 	US_PrintCentered ("Screenshot taken");
@@ -199,7 +209,7 @@ static void GiveAllWeaponsAndAmmo()
 			(cls->GetParent() == NATIVE_CLASS(Ammo))
 		)
 		{
-			inv = (AInventory *) AActor::Spawn(cls, 0, 0, 0, false);
+			inv = (AInventory *) AActor::Spawn(cls, 0, 0, 0, 0);
 			inv->RemoveFromWorld();
 			const Frame * const readyState = cls->FindState("Ready");
 			if(cls->GetParent() == NATIVE_CLASS(Ammo))
@@ -346,7 +356,7 @@ int DebugKeys (void)
 		GiveAllWeaponsAndAmmo();
 		GivePoints (100000);
 		players[0].health = 100;
-		DrawStatusBar();
+		StatusBar->DrawStatusBar();
 		IN_Ack ();
 		return 1;
 	}
@@ -526,7 +536,7 @@ int DebugKeys (void)
 				AActor *newobj = AActor::Spawn(cls,
 					players[0].mo->x + FixedMul(distance, finecosine[players[0].mo->angle>>ANGLETOFINESHIFT]),
 					players[0].mo->y - FixedMul(distance, finesine[players[0].mo->angle>>ANGLETOFINESHIFT]),
-					0, false);
+					0, 0);
 				newobj->angle = players[0].mo->angle;
 			}
 			else
@@ -534,7 +544,7 @@ int DebugKeys (void)
 				if(!cls || !cls->IsDescendantOf(NATIVE_CLASS(Inventory)))
 					return 1;
 
-				AInventory *inv = (AInventory *) AActor::Spawn(cls, 0, 0, 0, false);
+				AInventory *inv = (AInventory *) AActor::Spawn(cls, 0, 0, 0, 0);
 				inv->RemoveFromWorld();
 				if(!inv->CallTryPickup(players[0].mo))
 					inv->Destroy();
@@ -582,6 +592,28 @@ int DebugKeys (void)
 		}
 	}
 #endif
+	else if(Keyboard[sc_Comma])
+	{
+		gLevelLight = MAX(1, gLevelLight-1);
+		Printf("Light = %d\n", gLevelLight);
+	}
+	else if(Keyboard[sc_Peroid])
+	{
+		gLevelLight = MIN(256, gLevelLight+1);
+		Printf("Light = %d\n", gLevelLight);
+	}
+	else if(Keyboard[sc_Y])
+	{
+		gLevelVisibility = MAX(1, gLevelVisibility-20000);
+		Printf("Vis = %d\n", gLevelVisibility);
+		CalcVisibility(gLevelVisibility);
+	}
+	else if(Keyboard[sc_U])
+	{
+		gLevelVisibility = MIN(200<<FRACBITS, gLevelVisibility+20000);
+		Printf("Vis = %d\n", gLevelVisibility);
+		CalcVisibility(gLevelVisibility);
+	}
 
 	return 0;
 }
