@@ -707,7 +707,10 @@ static void PG13 (void)
 
 	VWB_Clear(color, 0, 0, screenWidth, screenHeight);
 	FTexture *tex = TexMan(gameinfo.AdvisoryPic);
-	VWB_DrawGraphic(tex, 304-tex->GetScaledWidth(), 174-tex->GetScaledHeight());
+	if(tex->GetScaledWidth() == 320)
+		VWB_DrawGraphic(tex, 0, 100-tex->GetScaledHeight()/2);
+	else
+		VWB_DrawGraphic(tex, 304-tex->GetScaledWidth(), 174-tex->GetScaledHeight());
 	VW_UpdateScreen ();
 
 	VW_FadeIn ();
@@ -1322,8 +1325,8 @@ int main (int argc, char *argv[])
 
 			printf("W_Init: Init WADfiles.\n");
 			Wads.InitMultipleFiles(files);
-			language.SetupStrings();
 			LumpRemapper::RemapAll();
+			language.SetupStrings();
 		}
 
 		InitThinkerList();

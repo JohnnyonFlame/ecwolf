@@ -1,8 +1,8 @@
 /*
-** language.h
+** a_smartanim.cpp
 **
 **---------------------------------------------------------------------------
-** Copyright 2011 Braden Obrzut
+** Copyright 2013 Braden Obrzut
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -29,30 +29,46 @@
 ** THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **---------------------------------------------------------------------------
 **
+** Smart animation emulation.
 **
 */
 
-#ifndef __LANGUAGE_H__
-#define __LANGUAGE_H__
+#include "actor.h"
+#include "thingdef/thingdef.h"
 
-#include "tarray.h"
-#include "zstring.h"
+//------------------------------------------------------------------------------
+// Plasma Grenade state duration function. This calculates how many tics it
+// will take to pass into the next tile. Sets the current frame to that duration
+//
 
-class Language
+ACTION_FUNCTION(A_PlasmaGrenadeCalcDuration)
 {
-	public:
-		void		SetupStrings(const char* language=NULL);
+	const bool horiz = ABS(self->velx) > ABS(self->vely);
+	const fixed velocity = horiz ? self->velx : self->vely;
 
-		const char*	operator[] (const char* index) const;
+	fixed distance = horiz ? self->fracx : self->fracy;
+	if(velocity > 0)
+		distance = FRACUNIT - distance;
 
-	protected:
-		void		ReadLump(int lump, const char* language);
-		void		SetupBlakeStrings(const char* lumpname, const char* prefix);
+	self->ticcount = distance/ABS(velocity) + 1;
+}
 
-	private:
-		TMap<FName, FString>	strings;
-};
+//------------------------------------------------------------------------------
+// Smart animation: Blake Stone used these to implement simple animation
+// sequences. This would be fine, but they used the random number generator a
+// little too much. So the main purpose of this is to hold a random number
+// throughout an animation sequence.
+//
+// Due to technical limitations, this inconsistently takes 70hz tics instead of
+// Doom style half tics.
 
-extern Language language;
+ACTION_FUNCTION(A_InitSmartAnim)
+{
+	ACTION_PARAM_INT(delay, 0);
+	self->temp1 = delay;
+}
 
-#endif /* __LANGUAGE_H__ */
+ACTION_FUNCTION(A_SmartAnimDelay)
+{
+	self->ticcount = self->temp1;
+}
