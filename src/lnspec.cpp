@@ -37,6 +37,8 @@
 #include "id_sd.h"
 #include "lnspec.h"
 #include "actor.h"
+#include "sndseq.h"
+#include "thinker.h"
 #include "wl_act.h"
 #include "wl_agent.h"
 #include "wl_draw.h"
@@ -97,51 +99,6 @@ LineSpecialFunction Specials::LookupFunction(LineSpecials function)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "thinker.h"
-
-// Temporary function until sound sequences are supported
-static void PlaySoundSequence(MapSpot spot, bool door, bool open)
-{
-	// Valid squences:
-	// DoorNormal
-	// DoorMetal (Lost Episodes)
-	// PushwallNormal
-	// PushwallHeavy (Lost Episodes)
-
-	FName sequence = door ? gameinfo.DoorSoundSequence : gameinfo.PushwallSoundSequence;
-
-	if(open)
-	{
-		switch(sequence)
-		{
-			case NAME_DoorNormal:
-				PlaySoundLocMapSpot("doors/open", spot);
-				break;
-			case NAME_DoorMetal:
-				PlaySoundLocMapSpot("doors/metal_open", spot);
-				break;
-			case NAME_PushwallNormal:
-				PlaySoundLocMapSpot("world/pushwall", spot);
-				break;
-			case NAME_PushwallHeavy:
-				PlaySoundLocMapSpot("world/pushwall_heavy", spot);
-				break;
-		}
-	}
-	else
-	{
-		switch(sequence)
-		{
-			case NAME_DoorNormal:
-				PlaySoundLocMapSpot("doors/close", spot);
-				break;
-			case NAME_DoorMetal:
-				PlaySoundLocMapSpot("doors/metal_close", spot);
-				break;
-		}
-	}
-}
-
 FUNC(NOP)
 {
 	return 0;
@@ -152,9 +109,16 @@ class EVDoor : public Thinker
 	DECLARE_CLASS(EVDoor, Thinker)
 
 	public:
-		EVDoor(MapSpot spot, unsigned int speed, int opentics, bool direction) : Thinker(ThinkerList::WORLD),
+		EVDoor(MapSpot spot, unsigned int speed, int opentics, bool direction, unsigned int style) : Thinker(ThinkerList::WORLD),
 			state(Closed), spot(spot), amount(0), opentics(opentics), direction(direction)
 		{
+			if(spot->tile->soundSequence == NAME_None)
+				seqname = gameinfo.DoorSoundSequence;
+			else
+				seqname = spot->tile->soundSequence;
+			sndseq = NULL;
+
+			spot->slideStyle = style;
 			if(spot->slideAmount[direction] == 0 && spot->slideAmount[direction+2] == 0)
 				ChangeState(Opening);
 			else
@@ -170,6 +134,8 @@ class EVDoor : public Thinker
 
 		void Destroy()
 		{
+			if(sndseq)
+				delete sndseq;
 			if(spot->thinker == this)
 				spot->thinker = NULL;
 			Super::Destroy();
@@ -177,6 +143,9 @@ class EVDoor : public Thinker
 
 		void Tick()
 		{
+			if(sndseq)
+				sndseq->Tick();
+
 			switch(state)
 			{
 				default:
@@ -190,7 +159,7 @@ class EVDoor : public Thinker
 						map->LinkZones(zone1, zone2, true);
 
 						if(map->CheckLink(zone1, players[0].mo->GetZone(), true))
-							PlaySoundSequence(spot, true, true);
+							sndseq = new SndSeqPlayer(SoundSeq(seqname, SEQ_OpenNormal), spot);
 					}
 
 					if(amount < 0xffff)
@@ -319,10 +288,15 @@ class EVDoor : public Thinker
 					break;
 				case Opened:
 					wait = opentics;
+					if(sndseq)
+					{
+						delete sndseq;
+						sndseq = NULL;
+					}
 					break;
 				case Closing:
 					if(map->CheckLink(spot->GetAdjacent(MapTile::Side(direction))->zone, players[0].mo->GetZone(), true))
-						PlaySoundSequence(spot, true, false);
+						sndseq = new SndSeqPlayer(SoundSeq(seqname, SEQ_CloseNormal), spot);
 					break;
 			}
 			return true;
@@ -330,6 +304,10 @@ class EVDoor : public Thinker
 
 		State state;
 		MapSpot spot;
+
+		SndSeqPlayer *sndseq;
+		FName seqname;
+
 		unsigned int speed;
 		int amount;
 		int opentics;
@@ -368,7 +346,7 @@ FUNC(Door_Open)
 			return 0;
 		}
 
-		new EVDoor(spot, args[1], args[2], args[4]&DOOR_TYPE_DIRECTION);
+		new EVDoor(spot, args[1], args[2], args[4]&DOOR_TYPE_DIRECTION, args[4]>>1);
 	}
 	else
 	{
@@ -386,7 +364,7 @@ FUNC(Door_Open)
 			}
 
 			activated = true;
-			new EVDoor(door, args[1], args[2], args[4]&DOOR_TYPE_DIRECTION);
+			new EVDoor(door, args[1], args[2], args[4]&DOOR_TYPE_DIRECTION, args[4]>>1);
 		}
 		return activated;
 	}
@@ -402,6 +380,12 @@ class EVPushwall : public Thinker
 			Thinker(ThinkerList::WORLD), spot(spot), moveTo(NULL), direction(direction), position(0),
 			speed(speed), distance(distance)
 		{
+			if(spot->tile->soundSequence == NAME_None)
+				seqname = gameinfo.PushwallSoundSequence;
+			else
+				seqname = spot->tile->soundSequence;
+			sndseq = NULL;
+
 			if(distance == 0) // ROTT style pushwall, move until blocked
 				distance = 0xFFFF;
 
@@ -440,6 +424,8 @@ class EVPushwall : public Thinker
 
 		void Destroy()
 		{
+			if(sndseq)
+				delete sndseq;
 			if(spot->thinker == this)
 				spot->thinker = NULL;
 			Super::Destroy();
@@ -448,7 +434,10 @@ class EVPushwall : public Thinker
 		void Tick()
 		{
 			if(position == 0)
-				PlaySoundSequence(spot, false, true);
+				sndseq = new SndSeqPlayer(SoundSeq(seqname, SEQ_OpenNormal), spot);
+
+			if(sndseq)
+				sndseq->Tick();
 
 			// Setup the next tile to get ready to accept this tile.
 			if(moveTo == NULL)
@@ -519,6 +508,10 @@ class EVPushwall : public Thinker
 	private:
 
 		MapSpot spot, moveTo;
+
+		SndSeqPlayer *sndseq;
+		FName seqname;
+
 		unsigned short	direction;
 		unsigned int	position;
 		unsigned int	speed;
@@ -622,7 +615,7 @@ class EVVictorySpin : public Thinker
 			gamestate.victoryflag = true;
 			players[0].SetPSprite(NULL, player_t::ps_weapon);
 
-			runner = AActor::Spawn(ClassDef::FindClass("BJRun"), activator->x, activator->y, 0, true);
+			runner = AActor::Spawn(ClassDef::FindClass("BJRun"), activator->x, activator->y, 0, SPAWN_AllowReplacement);
 			runner->flags |= FL_PATHING;
 			runner->angle = ((direction+2)%4)*ANGLE_90;
 			runner->dir = static_cast<dirtype>(runner->angle/ANGLE_45);

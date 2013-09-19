@@ -34,6 +34,8 @@
 
 #include "gamemap.h"
 #include "gamemap_common.h"
+#include "g_mapinfo.h"
+#include "id_ca.h"
 #include "lnspec.h"
 #include "scanner.h"
 #include "w_wad.h"
@@ -85,6 +87,11 @@ void TextMapParser::ParseTile(Scanner &sc, MapTile &tile)
 	{
 		sc.MustGetToken(TK_BoolConst);
 		tile.sideSolid[MapTile::West] = sc->boolean;
+	}
+	else CheckKey("soundsequence")
+	{
+		sc.MustGetToken(TK_StringConst);
+		tile.soundSequence = sc->str;
 	}
 	else CheckKey("texturenorth")
 	{
@@ -532,8 +539,9 @@ class UWMFParser : public TextMapParser
 
 void GameMap::ReadUWMFData()
 {
-	gLevelVisibility = VISIBILITY_DEFAULT;
-	gLevelLight = LIGHTLEVEL_DEFAULT;
+	gLevelVisibility = levelInfo->DefaultVisibility;
+	gLevelLight = levelInfo->DefaultLighting;
+	gLevelMaxLightVis = levelInfo->DefaultMaxLightVis;
 
 	long size = lumps[0]->GetLength();
 	char *data = new char[size];

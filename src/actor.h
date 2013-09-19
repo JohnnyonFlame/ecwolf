@@ -41,7 +41,7 @@
 #include "name.h"
 #include "dobject.h"
 
-#define DECLARE_CLASS(name, parent) \
+#define DECLARE_ABSTRACT_CLASS(name, parent) \
 	friend class ClassDef; \
 	private: \
 		typedef parent Super; \
@@ -49,10 +49,14 @@
 	protected: \
 		name(const ClassDef *classType) : parent(classType) {} \
 		virtual const ClassDef *__StaticType() const { return __StaticClass; } \
-		static DObject *__InPlaceConstructor(const ClassDef *classType, void *mem); \
 	public: \
 		static const ClassDef *__StaticClass; \
 		static const size_t __PointerOffsets[];
+#define DECLARE_CLASS(name, parent) \
+	DECLARE_ABSTRACT_CLASS(name, parent) \
+	protected: \
+		static DObject *__InPlaceConstructor(const ClassDef *classType, void *mem); \
+	public:
 #define DECLARE_NATIVE_CLASS(name, parent) DECLARE_CLASS(A##name, A##parent)
 #define HAS_OBJECT_POINTERS
 #define __IMPCLS_ABSTRACT(cls, name) \
@@ -62,7 +66,6 @@
 	DObject *cls::__InPlaceConstructor(const ClassDef *classType, void *mem) { return new ((EInPlace *) mem) cls(classType); }
 #define IMPLEMENT_ABSTRACT_CLASS(cls) \
 	__IMPCLS_ABSTRACT(cls, #cls) \
-	DObject *cls::__InPlaceConstructor(const ClassDef *classType, void *mem) { return Super::__InPlaceConstructor(classType, mem); } \
 	const size_t cls::__PointerOffsets[] = { ~(size_t)0 };
 #define IMPLEMENT_INTERNAL_CLASS(cls) \
 	__IMPCLS(cls, #cls) \
@@ -93,6 +96,7 @@ class Frame
 {
 	public:
 		~Frame();
+		int GetTics() const;
 
 		union
 		{
@@ -101,6 +105,7 @@ class Frame
 		};
 		uint8_t		frame;
 		int			duration;
+		unsigned	randDuration;
 		bool		fullbright;
 		class ActionCall
 		{
@@ -169,6 +174,12 @@ enum
 	AMETA_DefaultHealth9
 };
 
+enum
+{
+	SPAWN_AllowReplacement = 1,
+	SPAWN_Patrol = 2
+};
+
 class player_t;
 class AActorProxy;
 class ClassDef;
@@ -196,6 +207,7 @@ class AActor : public DObject
 		void			EnterZone(const MapZone *zone);
 		AInventory		*FindInventory(const ClassDef *cls);
 		const Frame		*FindState(const FName &name) const;
+		static void		FinishSpawningActors();
 		int				GetDamage();
 		const AActor	*GetDefault() const;
 		DropList		*GetDropList() const;
@@ -204,8 +216,8 @@ class AActor : public DObject
 		void			RemoveFromWorld();
 		virtual void	RemoveInventory(AInventory *item);
 		void			Serialize(FArchive &arc);
-		void			SetState(const Frame *state, bool notic=false);
-		static AActor	*Spawn(const ClassDef *type, fixed x, fixed y, fixed z, bool allowreplacement);
+		void			SetState(const Frame *state, bool norun=false);
+		static AActor	*Spawn(const ClassDef *type, fixed x, fixed y, fixed z, int flags);
 		virtual void	Tick();
 		virtual void	Touch(AActor *toucher) {}
 
@@ -254,6 +266,7 @@ class AActor : public DObject
 		int32_t	speed, runspeed;
 		int		points;
 		fixed	radius;
+		fixed	projectilepassheight;
 
 		const Frame		*state;
 		unsigned int	sprite;
@@ -290,7 +303,8 @@ class AActor : public DObject
 		void	Init();
 
 		const MapZone	*soundZone;
-		TObjPtr<AActorProxy> thinker;
+		// This will hold an AActorProxy, but we use Thinker here since we want to be able to use this member elsewhere
+		TObjPtr<Thinker> thinker;
 };
 
 #endif

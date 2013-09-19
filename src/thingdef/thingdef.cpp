@@ -81,6 +81,7 @@ const struct FlagDef
 	DEFINE_FLAG(FL, COUNTKILL, Actor, flags),
 	DEFINE_FLAG(FL, COUNTSECRET, Actor, flags),
 	DEFINE_FLAG(WF, DONTBOB, Weapon, weaponFlags),
+	DEFINE_FLAG(FL, DONTRIP, Actor, flags),
 	DEFINE_FLAG(FL, DROPBASEDONTARGET, Actor, flags),
 	DEFINE_FLAG(IF, INVBAR, Inventory, itemFlags),
 	DEFINE_FLAG(FL, ISMONSTER, Actor, flags),
@@ -90,6 +91,7 @@ const struct FlagDef
 	DEFINE_FLAG(WF, NOGRIN, Weapon, weaponFlags),
 	DEFINE_FLAG(FL, PICKUP, Actor, flags),
 	DEFINE_FLAG(FL, RANDOMIZE, Actor, flags),
+	DEFINE_FLAG(FL, RIPPER, Actor, flags),
 	DEFINE_FLAG(FL, REQUIREKEYS, Actor, flags),
 	DEFINE_FLAG(FL, SHOOTABLE, Actor, flags),
 	DEFINE_FLAG(FL, SOLID, Actor, flags)
@@ -203,7 +205,8 @@ struct StateDefinition
 		char		sprite[5];
 		FString		frames;
 		int			duration;
-		bool			fullbright;
+		unsigned	randDuration;
+		bool		fullbright;
 		NextType	nextType;
 		FString		nextArg;
 		StateLabel	jumpLabel;
@@ -771,6 +774,7 @@ void ClassDef::InstallStates(const TArray<StateDefinition> &stateDefs)
 			memcpy(thisFrame->sprite, thisStateDef.sprite, 4);
 			thisFrame->frame = thisStateDef.frames[i]-'A';
 			thisFrame->duration = thisStateDef.duration;
+			thisFrame->randDuration = thisStateDef.randDuration;
 			thisFrame->fullbright = thisStateDef.fullbright;
 			thisFrame->action = thisStateDef.functions[0];
 			thisFrame->thinker = thisStateDef.functions[1];
@@ -1054,6 +1058,7 @@ void ClassDef::ParseActor(Scanner &sc)
 					StateDefinition thisState;
 					thisState.sprite[0] = thisState.sprite[4] = 0;
 					thisState.duration = 0;
+					thisState.randDuration = 0;
 					thisState.nextType = StateDefinition::NORMAL;
 
 					if(needIdentifier)
@@ -1119,6 +1124,23 @@ void ClassDef::ParseActor(Scanner &sc)
 								thisState.nextType = StateDefinition::GOTO;
 								thisState.nextArg = thisState.frames;
 								thisState.frames = FString();
+							}
+							else if(sc.CheckToken(TK_Identifier))
+							{
+								if(sc->str.CompareNoCase("random") != 0)
+									sc.ScriptMessage(Scanner::ERROR, "Expected random frame duration.");
+
+								sc.MustGetToken('(');
+								sc.MustGetToken(TK_FloatConst);
+								if(!CheckTicsValid(sc->decimal))
+									sc.ScriptMessage(Scanner::ERROR, "Fractional frame durations must be exactly .5!");
+								thisState.duration = static_cast<int> (sc->decimal*2);
+								sc.MustGetToken(',');
+								sc.MustGetToken(TK_FloatConst);
+								if(!CheckTicsValid(sc->decimal))
+									sc.ScriptMessage(Scanner::ERROR, "Fractional frame durations must be exactly .5!");
+								thisState.randDuration = static_cast<int> (sc->decimal*2);
+								sc.MustGetToken(')');
 							}
 							else
 								sc.ScriptMessage(Scanner::ERROR, "Expected frame duration.");
@@ -1524,6 +1546,8 @@ void ClassDef::ParseDecorateLump(int lumpNum)
 					}
 					while(max >= min && max < globalSymbols.Size());
 				}
+				if(globalSymbols[mid]->GetName() <= constName)
+					++mid;
 				globalSymbols.Insert(mid, newSym);
 			}
 			else

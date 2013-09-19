@@ -31,6 +31,7 @@
 #include "templates.h"
 #include "thingdef/thingdef.h"
 #include "wl_loadsave.h"
+#include "am_map.h"
 
 #include <climits>
 
@@ -46,10 +47,11 @@ static bool menusAreFaded = true;
 MENU_LISTENER(EnterControlBase);
 
 Menu mainMenu(MENU_X, MENU_Y, MENU_W, 24);
-Menu optionsMenu(80, 85, 180, 28);
+Menu optionsMenu(80, 80, 190, 28);
 Menu soundBase(24, 45, 284, 24);
 Menu controlBase(CTL_X, CTL_Y, CTL_W, 56, EnterControlBase);
 Menu displayMenu(60, 95, 225, 56);
+Menu automapMenu(40, 75, 260, 56);
 Menu mouseSensitivity(20, 80, 300, 0);
 Menu playerClasses(NM_X, NM_Y, NM_W, 24);
 Menu episodes(NE_X+4, NE_Y-1, NE_W+7, 83);
@@ -217,7 +219,9 @@ MENU_LISTENER(ReadThis)
 MENU_LISTENER(ToggleFullscreen)
 {
 	fullscreen = vid_fullscreen;
+	screen->Unlock();
 	VL_SetVGAPlaneMode();
+	screen->Lock(false);
 	displayMenu.draw();
 	return true;
 }
@@ -231,93 +235,26 @@ MENU_LISTENER(SetAspectRatio)
 }
 
 // Dummy screen sizes to pass when windowed
-static struct MiniModeInfo
-{
-	WORD Width, Height;
-} WinModes[] =
-{
-	{ 320, 200 },
-	{ 320, 240 },
-	{ 400, 225 },	// 16:9
-	{ 400, 300 },
-	{ 480, 270 },	// 16:9
-	{ 480, 360 },
-	{ 512, 288 },	// 16:9
-	{ 512, 384 },
-	{ 640, 360 },	// 16:9
-	{ 640, 400 },
-	{ 640, 480 },
-	{ 720, 480 },	// 16:10
-	{ 720, 540 },
-	{ 800, 450 },	// 16:9
-	{ 800, 500 },	// 16:10
-	{ 800, 600 },
-	{ 848, 480 },	// 16:9
-	{ 960, 600 },	// 16:10
-	{ 960, 720 },
-	{ 1024, 576 },	// 16:9
-	{ 1024, 600 },	// 17:10
-	{ 1024, 640 },	// 16:10
-	{ 1024, 768 },
-	{ 1088, 612 },	// 16:9
-	{ 1152, 648 },	// 16:9
-	{ 1152, 720 },	// 16:10
-	{ 1152, 864 },
-	{ 1280, 720 },	// 16:9
-	{ 1280, 800 },	// 16:10
-	{ 1280, 960 },
-	{ 1280, 1024 },	// 5:4
-	{ 1360, 768 },	// 16:9
-	{ 1400, 787 },	// 16:9
-	{ 1400, 875 },	// 16:10
-	{ 1400, 1050 },
-	{ 1600, 900 },	// 16:9
-	{ 1600, 1000 },	// 16:10
-	{ 1600, 1200 },
-	{ 1920, 1080 },
-	{ 1920, 1200 },
-};
 MENU_LISTENER(EnterResolutionSelection);
 MENU_LISTENER(SetResolution)
 {
 	MenuFadeOut();
 
-	if(!fullscreen)
 	{
-		screenWidth = WinModes[which].Width;
-		screenHeight = WinModes[which].Height;
-	}
-	else
-	{
-#if SDL_VERSION_ATLEAST(2,0,0)
-		int modes = SDL_GetNumDisplayModes(0);
-		int lastw = 0, lasth = 0;
-		SDL_DisplayMode mode;
-		for(int m = 0, i = 0;m < modes;++m)
-		{
-			SDL_GetDisplayMode(0, m, &mode);
-			if(mode.w == lastw && mode.h == lasth)
-				continue;
-			lastw = mode.w;
-			lasth = mode.h;
-
-			if(i++ == which)
-			{
-				screenWidth = mode.w;
-				screenHeight = mode.h;
-				break;
-			}
-		}
-#else
-		SDL_Rect **modes = SDL_ListModes (NULL, SDL_FULLSCREEN|SDL_HWSURFACE);
-		screenWidth = modes[which]->w;
-		screenHeight = modes[which]->h;
-#endif
+		int width, height;
+		bool lb;
+		Video->StartModeIterator(DisplayBits, vid_fullscreen);
+		for(int i = 0;i <= which;++i)
+			Video->NextMode(&width, &height, &lb);
+		screenWidth = width;
+		screenHeight = height;
 	}
 
 	r_ratio = static_cast<Aspect>(CheckRatio(screenWidth, screenHeight));
 	VH_Startup(); // Recalculate fizzlefade stuff.
+	screen->Unlock();
 	VL_SetVGAPlaneMode();
+	screen->Lock(false);
 	EnterResolutionSelection(which);
 	resolutionMenu.draw();
 	MenuFadeIn();
@@ -329,70 +266,31 @@ MENU_LISTENER(EnterResolutionSelection)
 	resolutionMenu.clear();
 	FString resolution;
 
-	if(!fullscreen)
 	{
-		for(unsigned int i = 0;i < countof(WinModes);++i)
+		int width, height;
+		bool lb;
+		Video->StartModeIterator(DisplayBits, vid_fullscreen);
+		while(Video->NextMode(&width, &height, &lb))
 		{
-			resolution.Format("%dx%d", WinModes[i].Width, WinModes[i].Height);
+			resolution.Format("%dx%d", width, height);
 			MenuItem *item = new MenuItem(resolution, SetResolution);
 			resolutionMenu.addItem(item);
-			if(WinModes[i].Width == screenWidth && WinModes[i].Height == screenHeight)
+
+			if(width == SCREENWIDTH && height == SCREENHEIGHT)
 			{
 				selected = resolutionMenu.countItems()-1;
 				item->setHighlighted(true);
 			}
 		}
-	}
-	else
-	{
-#if SDL_VERSION_ATLEAST(2,0,0)
-		int numModes = SDL_GetNumDisplayModes(0);
-		if(numModes == 0)
-			return false;
-
-		SDL_DisplayMode mode;
-		int lastw = 0, lasth = 0;
-		for(int m = 0;m < numModes;++m)
-		{
-			SDL_GetDisplayMode(0, m, &mode);
-			if(mode.w == lastw && mode.h == lasth)
-				continue;
-			lastw = mode.w;
-			lasth = mode.h;
-
-			resolution.Format("%dx%d", mode.w, mode.h);
-			MenuItem *item = new MenuItem(resolution, SetResolution);
-			resolutionMenu.addItem(item);
-
-			if(static_cast<unsigned>(mode.w) == screenWidth && static_cast<unsigned>(mode.h) == screenHeight)
-			{
-				selected = resolutionMenu.countItems()-1;
-				item->setHighlighted(true);
-			}
-		}
-#else
-		SDL_Rect **modes = SDL_ListModes (NULL, SDL_FULLSCREEN|SDL_HWSURFACE);
-		if(modes == NULL)
-			return false;
-
-		while(*modes)
-		{
-			resolution.Format("%dx%d", (*modes)->w, (*modes)->h);
-			MenuItem *item = new MenuItem(resolution, SetResolution);
-			resolutionMenu.addItem(item);
-
-			if((*modes)->w == screenWidth && (*modes)->h == screenHeight)
-			{
-				selected = resolutionMenu.countItems()-1;
-				item->setHighlighted(true);
-			}
-
-			++modes;
-		}
-#endif
 	}
 
 	resolutionMenu.setCurrentPosition(selected);
+	return true;
+}
+
+MENU_LISTENER(ChangeAutomapFlag)
+{
+	AM_UpdateFlags();
 	return true;
 }
 
@@ -487,6 +385,7 @@ void CreateMenus()
 	optionsMenu.addItem(new MenuSwitcherMenuItem(language["STR_CL"], controlBase));
 	optionsMenu.addItem(new MenuSwitcherMenuItem(language["STR_SD"], soundBase));
 	optionsMenu.addItem(new MenuSwitcherMenuItem(language["STR_DISPLAY"], displayMenu));
+	optionsMenu.addItem(new MenuSwitcherMenuItem(language["STR_AMOPTIONS"], automapMenu));
 
 	// Collect options and defaults
 	const char* soundEffectsOptions[] = {language["STR_NONE"], language["STR_PC"], language["STR_ALSB"] };
@@ -556,6 +455,12 @@ void CreateMenus()
 	{
 		controls.addItem(new ControlMenuItem(controlScheme[i]));
 	}
+
+	automapMenu.setHeadText(language["STR_AMOPTIONS"]);
+	automapMenu.addItem(new BooleanMenuItem(language["STR_AMROTATE"], am_rotate, ChangeAutomapFlag));
+	automapMenu.addItem(new BooleanMenuItem(language["STR_AMTEXTURES"], am_drawtexturedwalls, ChangeAutomapFlag));
+	automapMenu.addItem(new BooleanMenuItem(language["STR_AMFLOORS"], am_drawfloors, ChangeAutomapFlag));
+	automapMenu.addItem(new BooleanMenuItem(language["STR_AMOVERLAY"], am_drawbackground, ChangeAutomapFlag));
 }
 
 static int SoundStatus = 1;
@@ -1165,7 +1070,7 @@ void MenuFadeIn()
 	assert(menusAreFaded);
 	menusAreFaded = false;
 
-	VL_FadeIn(0, 255, gamepal, 10);
+	VL_FadeIn(0, 255, 10);
 }
 
 void ShowMenu(Menu &menu)

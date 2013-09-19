@@ -1,0 +1,93 @@
+// Implemented as health for now (disabled behavior). When enabled:
+// Display quiz and give 4 points of health if wrong.  If right, give:
+// * 1000 points
+// * Either 25 points of health if under 100 and 10 feed or 25 feed
+// * Grin
+actor BibleQuiz : Health 163
+{
+	inventory.amount 4
+	states
+	{
+		Spawn:
+			QUIZ A -1
+			stop
+	}
+}
+
+actor ArkMap : Inventory 194
+{
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			AMAP A -1
+			stop
+	}
+}
+
+actor FeedSack : BackpackItem 176
+{
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			SACK A -1
+			stop
+	}
+}
+
+// Since this works the same as Mac Wolf we might as well use this as the base
+// item for both and use a more "generic" name than ArkFruit.
+actor MacTreasureItem : ExtraLifeItem
+{
+	inventory.amount 1
+	inventory.maxamount 50
+}
+
+actor ArkBanana : MacTreasureItem 183
+{
+	+COUNTITEM
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			BNNA A -1
+			stop
+	}
+}
+
+actor ArkApple : MacTreasureItem 184
+{
+	+COUNTITEM
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			APPL A -1
+			stop
+	}
+}
+
+actor ArkGrapes : MacTreasureItem 185
+{
+	+COUNTITEM
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			GRPE A -1
+			stop
+	}
+}
+
+actor ArkPeach : MacTreasureItem 186
+{
+	+COUNTITEM
+	+INVENTORY.ALWAYSPICKUP
+	states
+	{
+		Spawn:
+			PECH A -1
+			stop
+	}
+}

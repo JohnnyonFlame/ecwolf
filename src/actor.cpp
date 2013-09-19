@@ -67,6 +67,14 @@ Frame::~Frame()
 	}
 }
 
+static FRandom pr_statetics("StateTics");
+int Frame::GetTics() const
+{
+	if(randDuration)
+		return duration + pr_statetics.GenRand32() % (randDuration + 1);
+	return duration;
+}
+
 void Frame::ActionCall::operator() (AActor *self, AActor *stateOwner, const Frame * const caller) const
 {
 	if(pointer)
@@ -269,7 +277,7 @@ void AActor::Die()
 					// the AI, so it can be off by one.
 					static const fixed TILEMASK = ~(TILEGLOBAL-1);
 
-					AActor * const actor = AActor::Spawn(cls, (x&TILEMASK)+TILEGLOBAL/2, (y&TILEMASK)+TILEGLOBAL/2, 0, true);
+					AActor * const actor = AActor::Spawn(cls, (x&TILEMASK)+TILEGLOBAL/2, (y&TILEMASK)+TILEGLOBAL/2, 0, SPAWN_AllowReplacement);
 					actor->angle = angle;
 					actor->dir = dir;
 
@@ -357,7 +365,7 @@ const AActor *AActor::GetDefault() const
 
 Thinker *AActor::GetThinker()
 {
-	return (AActorProxy*)thinker;
+	return (Thinker*)thinker;
 }
 
 void AActor::Init()
@@ -437,6 +445,9 @@ void AActor::Serialize(FArchive &arc)
 		<< thinker
 		<< hasActorRef;
 
+	if(GameSave::SaveVersion > 1374914454)
+		arc << projectilepassheight;
+
 	if(!arc.IsStoring())
 	{
 		if(!hasActorRef)
@@ -449,20 +460,50 @@ void AActor::Serialize(FArchive &arc)
 	Super::Serialize(arc);
 }
 
-void AActor::SetState(const Frame *state, bool notic)
+void AActor::SetState(const Frame *state, bool norun)
 {
 	if(state == NULL)
+	{
+		Destroy();
 		return;
+	}
 
 	this->state = state;
 	sprite = state->spriteInf;
-	ticcount = state->duration;
-	if(!notic)
+	ticcount = state->GetTics();
+	if(!norun)
+	{
 		state->action(this, this, state);
+
+		while(ticcount == 0)
+		{
+			this->state = this->state->next;
+			if(!this->state)
+			{
+				Destroy();
+				break;
+			}
+			else
+			{
+				sprite = this->state->spriteInf;
+				ticcount = this->state->GetTics();
+				this->state->action(this, this, this->state);
+			}
+		}
+	}
 }
 
 void AActor::Tick()
 {
+	// If we just spawned we're not ready to be ticked yet
+	// Otherwise we might tick on the same tick we're spawned which would cause
+	// an actor with a duration of 1 tic to never display
+	if(ObjectFlags & OF_JustSpawned)
+	{
+		ObjectFlags &= ~OF_JustSpawned;
+		return;
+	}
+
 	if(state == NULL)
 	{
 		Destroy();
@@ -472,14 +513,11 @@ void AActor::Tick()
 	if(ticcount > 0)
 		--ticcount;
 
-	while(ticcount == 0)
+	if(ticcount == 0)
 	{
-		if(!state->next)
-		{
-			Destroy();
-			return;
-		}
 		SetState(state->next);
+		if(ObjectFlags & OF_EuthanizeMe)
+			return;
 	}
 
 	state->thinker(this, this, state);
@@ -499,7 +537,7 @@ void AActor::RemoveFromWorld()
 	}
 	if(thinker)
 	{
-		thinker->Disable();
+		((AActorProxy*)(Thinker*)thinker)->Disable();
 		thinker->Destroy();
 		thinker = NULL;
 	}
@@ -524,8 +562,33 @@ void AActor::RemoveInventory(AInventory *item)
 	item->DetachFromOwner();
 }
 
+/* When we spawn an actor we add them to this list. After the tic has finished
+ * processing we process this list to handle any start up actions.
+ *
+ * This is done so that we don't duplicate tics and actors appear on screen
+ * when they should. We can't do this in Spawn() since we want certain
+ * properties of the actor (velocity) to be setup before calling actions.
+ */
+static LinkedList<AActor *> SpawnedActors;
+void AActor::FinishSpawningActors()
+{
+	LinkedList<AActor *>::Node *node = SpawnedActors.Head();
+	while((node = SpawnedActors.Head()))
+	{
+		// Kind of a weird way to iterate, but remember that new actors can be
+		// pushed to this list. Currently our LinkedList class only tracks the
+		// head.
+		AActor *actor = node->Item();
+		SpawnedActors.Remove(node);
+
+		// Run the first action pointer and all zero tic states!
+		actor->SetState(actor->state);
+		actor->ObjectFlags &= ~OF_JustSpawned;
+	}
+}
+
 FRandom pr_spawnmobj("SpawnActor");
-AActor *AActor::Spawn(const ClassDef *type, fixed x, fixed y, fixed z, bool allowreplacement)
+AActor *AActor::Spawn(const ClassDef *type, fixed x, fixed y, fixed z, int flags)
 {
 	if(type == NULL)
 	{
@@ -533,7 +596,7 @@ AActor *AActor::Spawn(const ClassDef *type, fixed x, fixed y, fixed z, bool allo
 		return NULL;
 	}
 
-	if(allowreplacement)
+	if(flags & SPAWN_AllowReplacement)
 		type = type->GetReplacement();
 
 	AActor *actor = type->CreateInstance();
@@ -580,6 +643,25 @@ AActor *AActor::Spawn(const ClassDef *type, fixed x, fixed y, fixed z, bool allo
 		if((actor->flags & FL_RANDOMIZE) && actor->ticcount > 0)
 			actor->ticcount = pr_spawnmobj() % actor->ticcount;
 	}
+
+	// Change between patrolling and normal spawn and also execute any zero
+	// tic functions.
+	if(flags & SPAWN_Patrol)
+	{
+		actor->flags |= FL_PATHING;
+
+		// Pathing monsters should take at least a one tile step.
+		// Otherwise the paths will break early.
+		actor->distance = TILEGLOBAL;
+		if(actor->PathState)
+		{
+			actor->SetState(actor->PathState, true);
+			if(actor->flags & FL_RANDOMIZE)
+				actor->ticcount = pr_spawnmobj() % actor->ticcount;
+		}
+	}
+
+	SpawnedActors.Push(actor);
 
 	return actor;
 }
