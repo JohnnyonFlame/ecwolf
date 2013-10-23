@@ -349,7 +349,11 @@ void DrawPlayBorderSides(void)
 			VWB_Clear(colors[2], viewscreenx-scaleFactorX, viewscreeny+viewheight, viewscreenx, viewscreeny+viewheight+scaleFactorY);
 		}
 		else
+		{
+			if(statusbary1)
+				VWB_Clear(colors[0], 0, viewscreeny-scaleFactorY, screenWidth, viewscreeny);
 			VWB_Clear(colors[1], 0, viewscreeny+viewheight, screenWidth, viewscreeny+viewheight+scaleFactorY);
+		}
 	}
 }
 
@@ -365,18 +369,22 @@ void DrawPlayBorder (void)
 {
 	FTexture *borderTex = TexMan(levelInfo->GetBorderTexture());
 
-	//TODO Highlight of bordercol-3 in lower left.
-	VWB_DrawFill(borderTex, 0, 0, screenWidth, viewscreeny);
+	if(viewscreeny > statusbary1)
+		VWB_DrawFill(borderTex, 0, statusbary1, screenWidth, viewscreeny);
 	VWB_DrawFill(borderTex, 0, viewscreeny, viewscreenx, viewheight + viewscreeny);
 	VWB_DrawFill(borderTex, viewwidth + viewscreenx, viewscreeny, screenWidth, viewheight + viewscreeny);
-	VWB_DrawFill(borderTex, 0, viewscreeny + viewheight, screenWidth, statusbary);
+	VWB_DrawFill(borderTex, 0, viewscreeny + viewheight, screenWidth, statusbary2);
 	if(statusbarx)
 	{
-		VWB_DrawFill(borderTex, 0, statusbary, statusbarx, screenHeight);
-		VWB_DrawFill(borderTex, screenWidth-statusbarx, statusbary, screenWidth, screenHeight);
+		VWB_DrawFill(borderTex, 0, 0, statusbarx, statusbary1);
+		VWB_DrawFill(borderTex, screenWidth-statusbarx, 0, screenWidth, statusbary1);
+		VWB_DrawFill(borderTex, 0, statusbary2, statusbarx, screenHeight);
+		VWB_DrawFill(borderTex, screenWidth-statusbarx, statusbary2, screenWidth, screenHeight);
 	}
 	// Complete border
-	VWB_DrawFill(borderTex, statusbarx, statusbary, screenWidth-statusbarx, screenHeight);
+	if(statusbary1)
+		VWB_DrawFill(borderTex, statusbarx, 0, screenWidth-statusbarx, statusbary1);
+	VWB_DrawFill(borderTex, statusbarx, statusbary2, screenWidth-statusbarx, screenHeight);
 
 	DrawPlayBorderSides();
 }
@@ -395,13 +403,13 @@ void DrawPlayScreen (bool noborder)
 	if(!noborder)
 		DrawPlayBorder ();
 
-	DrawStatusBar();
+	StatusBar->DrawStatusBar();
 }
 
 void ShowActStatus()
 {
 	ingame = false;
-	DrawStatusBar();
+	StatusBar->DrawStatusBar();
 	ingame = true;
 }
 
@@ -669,6 +677,7 @@ void Died (void)
 		}
 
 		ThreeDRefresh ();
+		VH_UpdateScreen();
 		CalcTics ();
 	} while (curangle != iangle);
 
@@ -679,6 +688,7 @@ void Died (void)
 			players[0].mo->Tick();
 
 		ThreeDRefresh();
+		VH_UpdateScreen();
 		CalcTics();
 	}
 
@@ -696,7 +706,7 @@ void Died (void)
 
 	IN_ClearKeysDown ();
 
-	FizzleFade(screenBuffer,viewscreenx,viewscreeny,viewwidth,viewheight,70,false);
+	FizzleFade(viewscreenx,viewscreeny,viewwidth,viewheight,70,false);
 
 	IN_UserInput(100);
 	SD_WaitSoundDone ();
@@ -706,7 +716,7 @@ void Died (void)
 
 	if (players[0].lives > -1)
 	{
-		DrawStatusBar();
+		StatusBar->DrawStatusBar();
 
 		players[0].state = player_t::PST_REBORN;
 		thinkerList->DestroyAll();
@@ -791,7 +801,7 @@ restartgame:
 					if(ensure->IsDescendantOf(NATIVE_CLASS(Ammo)))
 					{
 						// For ammo ensure we have the proper amount
-						AAmmo *ammo = static_cast<AAmmo*>(AActor::Spawn(ensure, 0, 0, 0, false));
+						AAmmo *ammo = static_cast<AAmmo*>(AActor::Spawn(ensure, 0, 0, 0, 0));
 						ammo->RemoveFromWorld();
 
 						if(!holding)
@@ -813,7 +823,7 @@ restartgame:
 					if(holding)
 						continue;
 
-					AInventory *item = static_cast<AInventory*>(AActor::Spawn(ensure, 0, 0, 0, false));
+					AInventory *item = static_cast<AInventory*>(AActor::Spawn(ensure, 0, 0, 0, 0));
 					item->RemoveFromWorld();
 					if(!item->CallTryPickup(players[0].mo))
 						item->Destroy();
@@ -837,7 +847,7 @@ restartgame:
 			fizzlein = true;
 		}
 
-		DrawStatusBar();
+		StatusBar->DrawStatusBar();
 
 		dointermission = true;
 
@@ -922,7 +932,7 @@ restartgame:
 
 				StripInventory(players[0].mo);
 
-				DrawStatusBar();
+				StatusBar->DrawStatusBar();
 				if(dointermission)
 					VL_FadeOut(0, 255, RPART(levelInfo->ExitFadeColor), GPART(levelInfo->ExitFadeColor), BPART(levelInfo->ExitFadeColor), levelInfo->ExitFadeDuration);
 

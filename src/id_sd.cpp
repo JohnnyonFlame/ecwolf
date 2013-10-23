@@ -31,6 +31,7 @@
 #include "w_wad.h"
 #include "zstring.h"
 #include "sndinfo.h"
+#include "sndseq.h"
 #ifdef USE_GPL
 #include "dosbox/dbopl.h"
 #else
@@ -63,7 +64,7 @@ int		SoundVolume=MAX_VOLUME;
 //      Internal variables
 static  bool					SD_Started;
 static  bool					nextsoundpos;
-static  FString                 SoundPlaying;
+FString                 SoundPlaying;
 static  word                    SoundPriority;
 static  word                    DigiPriority;
 static  int                     LeftPosition;
@@ -502,6 +503,7 @@ int SD_PlayDigitized(const SoundData &which,int leftpos,int rightpos,SoundChanne
 
 void SD_ChannelFinished(int channel)
 {
+	SoundPlaying = FString();
 	channelSoundPos[channel].valid = 0;
 }
 
@@ -932,6 +934,7 @@ SD_Startup(void)
 	SD_Started = true;
 
 	SoundInfo.Init();
+	SoundSeq.Init();
 }
 
 ///////////////////////////////////////////////////////////////////////////
