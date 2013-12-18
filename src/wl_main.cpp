@@ -41,6 +41,8 @@
 #include "dobject.h"
 #include "colormatcher.h"
 #include "version.h"
+#include "r_2d/r_main.h"
+#include "filesys.h"
 
 #include <clocale>
 
@@ -89,7 +91,7 @@ int      viewscreenx, viewscreeny;
 int      viewwidth;
 int      viewheight;
 int      statusbarx;
-int      statusbary;
+int      statusbary1, statusbary2;
 short    centerx;
 short    centerxwide;
 int      shootdelta;           // pixels away from centerx a target can be
@@ -250,21 +252,19 @@ void CalcProjection (int32_t focal)
 	int     halfview;
 	double  facedist;
 
+	const fixed projectionFOV = static_cast<fixed>((players[0].FOV / 90.0f)*AspectCorrection[r_ratio].viewGlobal);
+
 	// 0xFD17 is a magic number to convert the player's radius 0x5800 to FOCALLENGTH (0x5700)
 	focallength = FixedMul(focal, 0xFD17);
 	facedist = 2*FOCALLENGTH+0x100; // Used to be MINDIST (0x5800) which was 0x100 then the FOCALLENGTH (0x5700)
 	halfview = viewwidth/2;                                 // half view in pixels
 	focallengthy = centerx*yaspect/finetangent[FINEANGLES/2+(ANGLE_45>>ANGLETOFINESHIFT)];
 
-	/*fixed* viewTangent = finetangent+FINEANGLES/4;
-	fixed FocalTangent = viewTangent[FINEANGLES/4+(ANGLE_45>>ANGLETOFINESHIFT)];
-	fixed FocalLengthY = (centerx<<FRACBITS)/FocalTangent;*/
-
 	//
 	// calculate scale value for vertical height calculations
 	// and sprite x calculations
 	//
-	scale = (fixed) (halfview*facedist/(AspectCorrection[r_ratio].viewGlobal/2));
+	scale = (fixed) (viewwidth*facedist/projectionFOV);
 
 	//
 	// divide heightnumerator by a posts distance to get the posts height for
@@ -279,7 +279,7 @@ void CalcProjection (int32_t focal)
 	for (i=0;i<halfview;i++)
 	{
 		// start 1/2 pixel over, so viewangle bisects two middle pixels
-		tang = (int32_t)i*AspectCorrection[r_ratio].viewGlobal/viewwidth/facedist;
+		tang = (int32_t)i*projectionFOV/viewwidth/facedist;
 		angle = (float) atan(tang);
 		intang = (int) (angle*radtoint);
 		pixelangle[halfview-1-i] = intang;
@@ -350,9 +350,12 @@ static void CollectGC()
 	GC::DelSoftRootHead();
 }
 
-static void DrawStartupConsole()
+static bool DrawStartupConsole()
 {
 	static const char* const tempString = "          " GAMENAME " " DOTVERSIONSTR_NOREV "\n\n\nTo be replaced with console...\n\n  The memory thing was just\n     for show anyways.";
+
+	if(gameinfo.SignonLump.IsEmpty())
+		return false;
 
 	CA_CacheScreen(TexMan(gameinfo.SignonLump));
 
@@ -361,8 +364,11 @@ static void DrawStartupConsole()
 	px = 160-width/2;
 	py = 76+62-height/2;
 	VWB_DrawPropString(ConFont, tempString, CR_GRAY);
+
+	return true;
 }
 
+void I_ShutdownGraphics();
 static void InitGame()
 {
 	// initialize SDL
@@ -372,6 +378,12 @@ static void InitGame()
 		exit(1);
 	}
 	atterm(SDL_Quit);
+
+#if SDL_VERSION_ATLEAST(2,0,0)
+#else
+	SDL_WM_SetCaption("ECWolf " DOTVERSIONSTR, NULL);
+#endif
+	SDL_ShowCursor(SDL_DISABLE);
 
 	int numJoysticks = SDL_NumJoysticks();
 	if(param_joystickindex && (param_joystickindex < -1 || param_joystickindex >= numJoysticks))
@@ -429,6 +441,9 @@ static void InitGame()
 	ClassDef::LoadActors();
 	atterm(CollectGC);
 
+	// I_ShutdownGraphics needs to be run before the class definitions are unloaded.
+	atterm (I_ShutdownGraphics);
+
 	// Parse non-gameinfo sections in MAPINFO
 	G_ParseMapInfo(false);
 
@@ -453,8 +468,10 @@ static void InitGame()
 //
 	FinalReadConfig();
 
-// Temporary status bar config
-	SetupStatusbar();
+//
+// Load the status bar
+//
+	CreateStatusBar();
 
 //
 // initialize the menusalcProjection
@@ -465,11 +482,15 @@ static void InitGame()
 // Finish signon screen
 //
 	VL_SetVGAPlaneMode();
-	DrawStartupConsole();
-	VH_UpdateScreen();
+	if(DrawStartupConsole())
+	{
+		VH_UpdateScreen();
 
-	if (!param_nowait)
-		IN_UserInput(70*4);
+		if (!param_nowait)
+			IN_UserInput(70*4);
+	}
+	else // Delay for a moment to allow the user to enter the jukebox if desired
+		IN_UserInput(16);
 
 //
 // HOLDING DOWN 'M' KEY?
@@ -501,12 +522,23 @@ static void SetViewSize (unsigned int screenWidth, unsigned int screenHeight)
 	if(AspectCorrection[r_ratio].isWide)
 		statusbarx = screenWidth*(48-AspectCorrection[r_ratio].multiplier)/(48*2);
 
-	statusbary = 200 - STATUSLINES - 1;
+	if(StatusBar)
+	{
+		statusbary1 = StatusBar->GetHeight(true);
+		statusbary2 = 200 - StatusBar->GetHeight(false);
+	}
+	else
+	{
+		statusbary1 = 0;
+		statusbary2 = 200;
+	}
+
+	statusbary1 = statusbary1*screenHeight/200;
 	if(AspectCorrection[r_ratio].tallscreen)
-		statusbary = ((statusbary - 100)*screenHeight*3)/AspectCorrection[r_ratio].baseHeight + screenHeight/2
+		statusbary2 = ((statusbary2 - 100)*screenHeight*3)/AspectCorrection[r_ratio].baseHeight + screenHeight/2
 			+ (screenHeight - screenHeight*AspectCorrection[r_ratio].multiplier/48)/2;
 	else
-		statusbary = statusbary*screenHeight/200;
+		statusbary2 = statusbary2*screenHeight/200;
 
 	unsigned int width;
 	unsigned int height;
@@ -518,12 +550,12 @@ static void SetViewSize (unsigned int screenWidth, unsigned int screenHeight)
 	else if(viewsize == 20)
 	{
 		width = screenWidth;
-		height = statusbary;
+		height = statusbary2-statusbary1;
 	}
 	else
 	{
 		width = screenWidth - (20-viewsize)*16*screenWidth/320;
-		height = (statusbary+1) - (20-viewsize)*8*screenHeight/200;
+		height = (statusbary2-statusbary1+1) - (20-viewsize)*8*screenHeight/200;
 	}
 
 	// Some code assumes these are even.
@@ -537,8 +569,8 @@ static void SetViewSize (unsigned int screenWidth, unsigned int screenHeight)
 	else
 	{
 		viewscreenx = (screenWidth-viewwidth) / 2;
-		viewscreeny = (statusbary-viewheight)/2;
-		screenofs = viewscreeny*bufferPitch+viewscreenx;
+		viewscreeny = (statusbary2+statusbary1-viewheight)/2;
+		screenofs = viewscreeny*SCREENPITCH+viewscreenx;
 	}
 
 	int virtheight = screenHeight;
@@ -1113,7 +1145,7 @@ static const char* CheckParameters(int argc, char *argv[], TArray<FString> &file
 		else IFARG("--savedir")
 		{
 			if(++i < argc)
-				GameSave::savedir = argv[i];
+				FileSys::SetDirectoryPath(FileSys::DIR_Saves, argv[i]);
 		}
 		else
 			files.Push(argv[i]);
@@ -1274,6 +1306,8 @@ int main (int argc, char *argv[])
 	// to the system locale.
 	setlocale(LC_ALL, "C");
 
+	FileSys::SetupPaths(argc, argv);
+
 	// Find the program directory.
 	FString progdir(".");
 	int pos = FString(argv[0]).LastIndexOfAny("/\\");
@@ -1306,6 +1340,8 @@ int main (int argc, char *argv[])
 		}
 
 		InitThinkerList();
+
+		R_InitRenderer();
 
 		printf("InitGame: Setting up the game...\n");
 		InitGame();

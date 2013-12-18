@@ -22,6 +22,8 @@
 #include "wl_inter.h"
 #include "wl_play.h"
 #include "g_mapinfo.h"
+#include "a_inventory.h"
+#include "am_map.h"
 
 /*
 =============================================================================
@@ -86,6 +88,10 @@ ControlScheme controlScheme[] =
 	{ bt_slot0,				"Slot 0",		-1,			sc_0,			-1, NULL, 0 },
 	{ bt_nextweapon,		"Next Weapon",	4,			-1,				-1, NULL, 0 },
 	{ bt_prevweapon,		"Prev Weapon",	5, 			-1,				-1, NULL, 0 },
+	{ bt_altattack,			"Alt Attack",	-1,			-1,				-1, NULL, 0 },
+	{ bt_reload,			"Reload",		-1,			-1,				-1, NULL, 0 },
+	{ bt_zoom,				"Zoom",			-1,			-1,				-1, NULL, 0 },
+	{ bt_automap,			"Automap",		-1,			-1,				-1, NULL, 0 },
 
 	// End of List
 	{ bt_nobutton,			NULL, -1, -1, -1, NULL, 0 }
@@ -275,6 +281,9 @@ void PollMouseMove (void)
 		controly += mouseymove * 40 / (21 - mouseadjustment);
 	else if(mouselook)
 	{
+		if(players[0].ReadyWeapon && players[0].ReadyWeapon->fovscale > 0)
+			mouseymove = mouseymove*fabs(players[0].ReadyWeapon->fovscale);
+
 		players[0].mo->pitch += mouseymove * (ANGLE_1 / (21 - mouseadjustment));
 		if(players[0].mo->pitch+ANGLE_180 > ANGLE_180+56*ANGLE_1)
 			players[0].mo->pitch = 56*ANGLE_1;
@@ -431,6 +440,21 @@ void ProcessEvents()
 //===========================================================================
 
 
+void BumpGamma()
+{
+	screenGamma += 0.1f;
+	if(screenGamma > 3.0f)
+		screenGamma = 1.0f;
+	screen->SetGamma(screenGamma);
+	US_CenterWindow (10,2);
+	FString msg;
+	msg.Format("Gamma: %g", screenGamma);
+	US_PrintCentered (msg);
+	VW_UpdateScreen();
+	VW_UpdateScreen();
+	IN_Ack();
+}
+
 /*
 =====================
 =
@@ -451,7 +475,17 @@ void CheckKeys (void)
 	scan = LastScan;
 
 	// [BL] Allow changing the screen size with the -/= keys a la Doom.
-	if(changeSize)
+	if(automap)
+	{
+		if(Keyboard[sc_Equals] ^ Keyboard[sc_Minus])
+		{
+			if(Keyboard[sc_Equals])
+				AM_Main.SetScale(FRACUNIT*1.05, true);
+			else
+				AM_Main.SetScale(FRACUNIT*0.95, true);
+		}
+	}
+	else if(changeSize)
 	{
 		if(Keyboard[sc_Equals] && !Keyboard[sc_Minus])
 			NewViewSize(viewsize+1);
@@ -575,10 +609,16 @@ void CheckKeys (void)
 		return;
 	}
 
+	if(scan == sc_F11)
+	{
+		BumpGamma();
+		return;
+	}
+
 //
 // TAB-? debug keys
 //
-	if (Keyboard[sc_Tab] && DebugOk)
+	if ((Keyboard[sc_Tab] || Keyboard[sc_BackSpace] || Keyboard[sc_Grave]) && DebugOk)
 	{
 		if (DebugKeys () && viewsize < 20)
 			DrawPlayBorder ();       // dont let the blue borders flash
@@ -741,18 +781,20 @@ void UpdatePaletteShifts (void)
 
 	if (red)
 	{
-		VL_SetBlend(0xFF, 0x00, 0x00, red*(174/NUMREDSHIFTS));
+		V_SetBlend(RPART(players[0].mo->damagecolor),
+                             GPART(players[0].mo->damagecolor),
+                             BPART(players[0].mo->damagecolor), red*(174/NUMREDSHIFTS));
 		palshifted = true;
 	}
 	else if (white)
 	{
 		// [BL] More of a yellow if you ask me.
-		VL_SetBlend(0xFF, 0xF8, 0x00, white*(38/NUMWHITESHIFTS));
+		V_SetBlend(0xFF, 0xF8, 0x00, white*(38/NUMWHITESHIFTS));
 		palshifted = true;
 	}
 	else if (palshifted)
 	{
-		VL_SetBlend(0, 0, 0, 0);
+		V_SetBlend(0, 0, 0, 0);
 		palshifted = false;
 	}
 }
@@ -772,7 +814,8 @@ void FinishPaletteShifts (void)
 {
 	if (palshifted)
 	{
-		VL_SetBlend(0, 0, 0, 0, true);
+		V_SetBlend(0, 0, 0, 0);
+		VH_UpdateScreen();
 		palshifted = false;
 	}
 }
@@ -806,7 +849,6 @@ void PlayLoop (void)
 	playstate = ex_stillplaying;
 	lasttimecount = GetTimeCount();
 	frameon = 0;
-	facecount = 0;
 	funnyticount = 0;
 	memset (buttonstate, 0, sizeof (buttonstate));
 	ClearPaletteShifts ();
@@ -817,9 +859,17 @@ void PlayLoop (void)
 	if (demoplayback)
 		IN_StartAck ();
 
+	StatusBar->NewGame();
+
 	do
 	{
 		ProcessEvents();
+
+		// Check automap toggle before we set any buttons as held
+		if (buttonstate[bt_automap] && !buttonheld[bt_automap])
+		{
+			automap ^= 1;
+		}
 
 //
 // actor thinking
@@ -833,14 +883,15 @@ void PlayLoop (void)
 
 			++gamestate.TimeCount;
 			thinkerList->Tick();
+			AActor::FinishSpawningActors();
 		}
-		//memset(map->GetHeader().spatial, 0, sizeof(map->GetHeader().spatial));
 
 		UpdatePaletteShifts ();
 
-		//Printf("--- Starting tic ---\n");
 		ThreeDRefresh ();
-		//Printf("\t END RENDER\n");
+
+		if(automap)
+			BasicOverhead();
 
 		//
 		// MAKE FUNNY FACE IF BJ DOESN'T MOVE FOR AWHILE
@@ -856,7 +907,9 @@ void PlayLoop (void)
 
 		CheckKeys ();
 		if((gamestate.TimeCount & 1) || !(tics & 1))
-			DrawStatusBar();
+			StatusBar->DrawStatusBar();
+
+		VH_UpdateScreen();
 //
 // debug aids
 //

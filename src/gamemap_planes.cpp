@@ -783,9 +783,10 @@ void GameMap::ReadPlanesData()
 				}
 				else
 				{
-					gLevelVisibility = VISIBILITY_DEFAULT;
-					gLevelLight = LIGHTLEVEL_DEFAULT;
+					gLevelVisibility = levelInfo->DefaultVisibility;
+					gLevelLight = levelInfo->DefaultLighting;
 				}
+				gLevelMaxLightVis = levelInfo->DefaultMaxLightVis;
 				break;
 			}
 
