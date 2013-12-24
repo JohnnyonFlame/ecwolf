@@ -54,6 +54,7 @@ typedef int64_t SQWORD;
 typedef void * memptr;
 typedef uint32_t uint32;
 typedef uint32_t BITFIELD;
+typedef int INTBOOL;
 
 // Screenshot buffer image data types
 enum ESSType
@@ -71,9 +72,15 @@ void Quit(const char *errorStr, ...);
 
 #define abs(x) ABS(x)
 
-#ifdef WINDOWS
+#define FIXED2FLOAT(fixed) ((double)(fixed)/65536.0)
+
+#ifdef _WIN32
 #define stricmp _stricmp
 #endif
+
+typedef double real64;
+typedef SDWORD int32;
+#include "xs_Float.h"
 
 /*
 =============================================================================
@@ -85,7 +92,7 @@ void Quit(const char *errorStr, ...);
 
 #define MAXPLAYERS		8 // You wish! :P  (This is just here to satisfy ZDoom stuff)
 #define BODYQUESIZE		32
-#define NUMCOLORMAPS	32
+#define NUMCOLORMAPS	64
 
 #define TICRATE 70
 #define MAXTICS 10
@@ -158,9 +165,6 @@ typedef uint32_t angle_t;
 #define SOUTH   2
 #define WEST    3
 
-
-#define STATUSLINES     40
-
 #define SCREENSIZE      (SCREENBWIDE*208)
 #define PAGE1START      0
 #define PAGE2START      (SCREENSIZE)
@@ -216,13 +220,16 @@ typedef enum
 	FL_REQUIREKEYS		= 0x00400000,
 	FL_ALWAYSFAST		= 0x00800000,
 	FL_RANDOMIZE		= 0x01000000,
-	FL_OLDRANDOMCHASE	= 0x02000000,
+	FL_RIPPER			= 0x02000000,
+	FL_DONTRIP			= 0x04000000,
+	FL_OLDRANDOMCHASE	= 0x08000000,
 
 	FL_PLAYERMISSILE	= 0x80000000, // Temporary until missile can keep the player as a target.
 
 	IF_AUTOACTIVATE		= 0x00000001,
 	IF_INVBAR			= 0x00000002,
 	IF_ALWAYSPICKUP		= 0x00000004,
+	IF_INACTIVE			= 0x00000008, // For picked up items that remain on the map
 
 	WF_NOGRIN			= 0x00000001,
 	WF_NOAUTOFIRE		= 0x00000002,
@@ -296,6 +303,10 @@ enum Button
 	bt_movebackward,
 	bt_turnleft,
 	bt_turnright,
+	bt_altattack,
+	bt_reload,
+	bt_zoom,
+	bt_automap,
 	NUMBUTTONS
 };
 

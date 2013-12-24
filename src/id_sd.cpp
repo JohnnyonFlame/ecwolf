@@ -31,6 +31,7 @@
 #include "w_wad.h"
 #include "zstring.h"
 #include "sndinfo.h"
+#include "sndseq.h"
 #ifdef USE_GPL
 #include "dosbox/dbopl.h"
 #else
@@ -63,7 +64,7 @@ int		SoundVolume=MAX_VOLUME;
 //      Internal variables
 static  bool					SD_Started;
 static  bool					nextsoundpos;
-static  FString                 SoundPlaying;
+FString                 SoundPlaying;
 static  word                    SoundPriority;
 static  word                    DigiPriority;
 static  int                     LeftPosition;
@@ -394,8 +395,7 @@ void _SDL_PCSpeakerEmulator(void *udata, Uint8 *stream, int len)
 					pcNumReadySamples--;
 					sampleslen--;
 
-					*stream16++;	// No need to set it to 0. SDL should have done that already.
-					*stream16++;
+					stream16 += 2;	// No need to set it to 0. SDL should have done that already.
 				}
 
 			if(!sampleslen)
@@ -502,6 +502,7 @@ int SD_PlayDigitized(const SoundData &which,int leftpos,int rightpos,SoundChanne
 
 void SD_ChannelFinished(int channel)
 {
+	SoundPlaying = FString();
 	channelSoundPos[channel].valid = 0;
 }
 
@@ -932,6 +933,7 @@ SD_Startup(void)
 	SD_Started = true;
 
 	SoundInfo.Init();
+	SoundSeq.Init();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1019,7 +1021,7 @@ bool SD_PlaySound(const char* sound, SoundChannel chan)
 				return(false);
 #endif
 
-			int channel = SD_PlayDigitized(sindex, lp, rp, chan);
+			SD_PlayDigitized(sindex, lp, rp, chan);
 			SoundPositioned = ispos;
 			DigiPriority = sindex.GetPriority();
 			SoundPlaying = sound;

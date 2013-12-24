@@ -95,8 +95,8 @@ The FON2 header is followed by variable length data:
 #include "r_data/r_translate.h"
 #include "colormatcher.h"
 #include "v_palette.h"
+#include "zdoomsupport.h"
 
-#define STACK_ARGS
 //
 // Globally visible constants.
 //
@@ -948,13 +948,16 @@ FSingleLumpFont::FSingleLumpFont (const char *name, int lump) : FFont(lump)
 	else if (data[0] != 'F' || data[1] != 'O' || data[2] != 'N' ||
 		(data[3] != '1' && data[3] != '2'))
 	{
-		// FMemLump adds one to GetSize so account for it.
-		if(data1.GetSize() - 1 == 72*64)
+		if(!LoadWolfFont(lump, data, data1.GetSize()))
 		{
-			LoadTile8(lump, data);
+			// FMemLump adds one to GetSize so account for it.
+			if((data1.GetSize() - 1)%64 == 0)
+			{
+				LoadTile8(lump, data);
+			}
+			else
+				I_FatalError ("%s is not a recognizable font", name);
 		}
-		else if(!LoadWolfFont(lump, data, data1.GetSize()))
-			I_FatalError ("%s is not a recognizable font", name);
 	}
 	else
 	{
@@ -1287,7 +1290,7 @@ bool FSingleLumpFont::LoadWolfFont(int lump, const BYTE *data, size_t length)
 	PatchRemap = NULL;
 	FontType = WOLFFONT;
 	Chars = new CharData[256];
-	SpaceWidth = width[' '];
+	SpaceWidth = width[(int)' '];
 	FirstChar = 0;
 	LastChar = 255;
 	GlobalKerning = 0;
@@ -2009,8 +2012,6 @@ void FTile8Char::MakeTexture()
 
 	Pixels = new BYTE[destSize];
 
-	int runlen = 0, setlen = 0;
-	BYTE setval = 0;  // Shut up, GCC!
 	BYTE *dest_p = Pixels;
 	int dest_adv = Height*4;
 	int dest_rew = destSize - 1;
