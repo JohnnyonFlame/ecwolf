@@ -812,7 +812,7 @@ void WaitKeyUp (void)
 	ControlInfo ci;
 	while (ReadAnyControl (&ci), ci.button0 |
 		ci.button1 |
-		ci.button2 | ci.button3 | Keyboard[sc_Space] | Keyboard[sc_Enter] | Keyboard[sc_Escape])
+		ci.button2 | ci.button3 | Keyboard[sc_Space] | Keyboard[sc_Enter] | Keyboard[sc_Escape] | Keyboard[sc_Alt])
 	{
 		IN_WaitAndProcessEvents();
 	}

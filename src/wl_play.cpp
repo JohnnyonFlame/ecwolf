@@ -620,7 +620,7 @@ void CheckKeys (void)
 		return;
 	}
 
-	if ((scan >= sc_F1 && scan <= sc_F9) || scan == sc_Escape || buttonstate[bt_esc])
+	if ((scan >= sc_F1 && scan <= sc_F9) || scan == sc_Enter || buttonstate[bt_esc])
 	{
 		int lastoffs = StopMusic ();
 		ClearMemory ();

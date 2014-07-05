@@ -438,7 +438,7 @@ void ControlMenuItem::activate()
 		}
 
 		ReadAnyControl(&ci);
-		if(LastScan == sc_Escape)
+		if(LastScan == sc_Enter)
 			break;
 	}
 
@@ -919,12 +919,18 @@ int Menu::handle()
 				break;
 		}
 
-		if (ci.button0 || Keyboard[sc_Space] || Keyboard[sc_Enter])
+		if (ci.button0 || Keyboard[sc_Space])
 			exit = 1;
 
-		if ((ci.button1 && !Keyboard[sc_Alt]) || Keyboard[sc_Escape])
+		if (Keyboard[sc_Alt])
 			exit = 2;
+			
+        if (Keyboard[sc_Enter] && ingame)
+        {
+            Menu::closeMenus();
 
+            return 0;
+        }       
 	}
 	while (!exit);
 
