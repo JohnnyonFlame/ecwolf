@@ -192,6 +192,7 @@ static void ChooseFont(void)
     // display, and we can use the large font.
 
     font = &small_font;
+    return;
 
     for (i=0; modes[i] != NULL; ++i)
     {
@@ -224,6 +225,8 @@ int TXT_Init(void)
 
     screen = SDL_SetVideoMode(TXT_SCREEN_W * font->w,
                               TXT_SCREEN_H * font->h, 8, 0);
+    
+    SDL_ShowCursor(SDL_FALSE);
 
     if (screen == NULL)
         return 0;
