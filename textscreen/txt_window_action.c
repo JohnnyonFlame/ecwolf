@@ -144,7 +144,7 @@ txt_window_action_t *TXT_NewWindowEscapeAction(txt_window_t *window)
 {
     txt_window_action_t *action;
 
-    action = TXT_NewWindowAction(KEY_ESCAPE, "Close");
+    action = TXT_NewWindowAction(KEY_LALT, "Close");
     TXT_SignalConnect(action, "pressed", WindowCloseCallback, window);
 
     return action;
@@ -156,7 +156,7 @@ txt_window_action_t *TXT_NewWindowAbortAction(txt_window_t *window)
 {
     txt_window_action_t *action;
 
-    action = TXT_NewWindowAction(KEY_ESCAPE, "Abort");
+    action = TXT_NewWindowAction(KEY_LALT, "Abort");
     TXT_SignalConnect(action, "pressed", WindowCloseCallback, window);
 
     return action;
@@ -166,7 +166,7 @@ txt_window_action_t *TXT_NewWindowSelectAction(txt_window_t *window)
 {
     txt_window_action_t *action;
 
-    action = TXT_NewWindowAction(KEY_ENTER, "Select");
+    action = TXT_NewWindowAction(KEY_RCTRL, "Select");
     TXT_SignalConnect(action, "pressed", WindowSelectCallback, window);
 
     return action;

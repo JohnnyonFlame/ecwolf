@@ -681,8 +681,8 @@ static const char *SpecialKeyName(int key)
         case KEY_EQUALS:      return "EQUALS";
         case KEY_MINUS:       return "MINUS";
         case KEY_RSHIFT:      return "SHIFT";
-        case KEY_RCTRL:       return "CTRL";
-        case KEY_RALT:        return "ALT";
+        case KEY_RCTRL:       return "A";
+        case KEY_RALT:        return "B";
         case KEY_CAPSLOCK:    return "CAPS";
         case KEY_SCRLCK:      return "SCRLCK";
         case KEY_HOME:        return "HOME";
