@@ -538,6 +538,9 @@ void SelectGame(TArray<FString> &wadfiles, const char* iwad, const char* datawad
 
 	if(basefiles.Size() == 0)
 	{
+        #ifdef USE_TEXTSCREEN
+            TXT_MissingiWad();
+        #endif
 		I_Error("Can not find base game data. (*.wl6, *.wl1, *.sdm, *.sod)");
 	}
 

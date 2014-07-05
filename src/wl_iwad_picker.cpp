@@ -360,3 +360,42 @@ int I_PickIWad (WadStuff *wads, int numwads, bool showwin, int defaultiwad)
 	return i-1;
 #endif
 }
+
+#ifdef USE_TEXTSCREEN
+void close_msg_callback(TXT_UNCAST_ARG(widget), TXT_UNCAST_ARG(window))
+{
+    TXT_CAST_ARG(txt_window_t, window);
+    TXT_CloseWindow(window);
+}
+
+void TXT_MissingiWad()
+{
+    if (!TXT_Init())
+    {
+        fprintf(stderr, "Failed to initialise GUI\n");
+        exit(-1);
+    }
+
+    TXT_SetDesktopTitle("ERROR");
+	window = TXT_NewWindow("Missing game data");
+	
+	TXT_AddWidgets(
+        window,
+        TXT_NewLabel("Cannot find base game data. (*.wl6, *.wl1, *.sdm, *.sod)"),
+        TXT_NewLabel("   Please copy the data files to .ecwolf in your home   "),
+        TXT_NewLabel("               folder and then try again                "),
+        NULL 
+	);
+	
+	txt_window_action_t *close_msg = TXT_NewWindowAction(KEY_RCTRL, "Close");
+	TXT_SignalConnect(close_msg, "pressed", close_msg_callback, window);
+	
+	TXT_SetWindowAction(window, TXT_HORIZ_LEFT, NULL);
+	TXT_SetWindowAction(window, TXT_HORIZ_RIGHT, NULL);
+	TXT_SetWindowAction(window, TXT_HORIZ_CENTER, close_msg);
+	
+    TXT_GUIMainLoop();
+
+	TXT_Shutdown();
+}
+#endif
