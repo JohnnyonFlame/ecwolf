@@ -207,7 +207,7 @@ void SetupPaths(int argc, const char * const *argv)
 		{
 			I_Error("Please set your HOME environment variable.\n");
 		}
-		configDir.Format("%s/.config/" GAME_DIR, home);
+		configDir.Format("%s/." GAME_DIR, home);
 	}
 	else
 		configDir.Format("%s/" GAME_DIR, xdg_config);
