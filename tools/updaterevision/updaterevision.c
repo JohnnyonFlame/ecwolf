@@ -27,6 +27,7 @@ int main(int argc, char **argv)
 	int gotrev = 0, needupdate = 1;
 	// [BB] Are we working with a SVN checkout?
 	int svnCheckout = 0;
+	int gitCheckout = 0;
 	char hgdateString[64];
 	time_t hgdate = 0;
 	char hgHash[13];
@@ -86,6 +87,52 @@ int main(int argc, char **argv)
 				// [BB] Extract the date from the output and store it.
 				hgdate = atoi ( hgdateString );
 			}
+		}
+	}
+	if (!gotrev)
+	{
+		if (stream != NULL)
+		{
+			int str_l = 0;
+			gotrev = 1;
+
+			sprintf(run, "git show -s --format=%%ct HEAD");
+			if (!system(run) && !fseek(stream, str_l, SEEK_SET) && fgets(hgdateString, sizeof(hgdateString), stream))
+			{	
+				if (strrchr(hgdateString, '\n'))
+					*strrchr(hgdateString, '\n') = '\0';
+
+				hgdate = atoi ( hgdateString );
+				str_l += strlen(hgdateString) + 1;
+			}
+			else
+				gotrev = 0;
+
+			sprintf(run, "git rev-list HEAD --count");
+			if (!system(run) && !fseek(stream, str_l, SEEK_SET) && fgets(hgdateString, sizeof(hgdateString), stream))
+			{
+				if (strrchr(hgdateString, '\n'))
+					*strrchr(hgdateString, '\n') = '\0';
+
+				urev = atoi ( hgdateString );
+				str_l += strlen(hgdateString) + 1;
+			}
+			else
+				gotrev = 0;
+
+			sprintf(run, "git rev-parse HEAD");
+			if (!system(run) && !fseek(stream, str_l, SEEK_SET) && fgets(hgHash, sizeof(hgHash), stream))
+			{
+				if (strrchr(hgHash, '\n'))
+					*strrchr(hgHash, '\n') = '\0';
+			}
+			else
+				gotrev = 0;
+
+			if (gotrev)
+				gitCheckout = 1;
+
+			fclose(stream);
 		}
 	}
 	if (stream != NULL)
@@ -164,10 +211,13 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		// [BB] Use hgdate as revision number.
-		if ( hgdate )
-			urev = (unsigned long)hgdate;
-		else
-			urev = strtoul(rev, NULL, 10);
+		if (!gitCheckout)
+		{
+			if ( hgdate )
+				urev = (unsigned long)hgdate;
+			else
+				urev = strtoul(rev, NULL, 10);
+		}
 		fprintf (stream,
 "// %s\n"
 "//\n"
