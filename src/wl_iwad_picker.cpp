@@ -376,14 +376,14 @@ void TXT_MissingiWad()
         exit(-1);
     }
 
-    TXT_SetDesktopTitle("ERROR");
-	window = TXT_NewWindow("Missing game data");
+    TXT_SetDesktopTitle(const_cast<char*>("ERROR"));
+	window = TXT_NewWindow(const_cast<char*>("Missing game data"));
 	
 	TXT_AddWidgets(
         window,
-        TXT_NewLabel("Cannot find base game data. (*.wl6, *.wl1, *.sdm, *.sod)"),
-        TXT_NewLabel("   Please copy the data files to .ecwolf in your home   "),
-        TXT_NewLabel("               folder and then try again                "),
+        TXT_NewLabel(const_cast<char*>("Cannot find base game data. (*.wl6, *.wl1, *.sdm, *.sod)")),
+        TXT_NewLabel(const_cast<char*>("   Please copy the data files to .ecwolf in your home   ")),
+        TXT_NewLabel(const_cast<char*>("               folder and then try again                ")),
         NULL 
 	);
 	
