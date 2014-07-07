@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ECWolf
+Comment=An ECWolf port for the Zero
+Exec=ecwolf
+Terminal=false
+Type=Application
+StartupNotify=true
+Icon=ecwolf
+Categories=games;
